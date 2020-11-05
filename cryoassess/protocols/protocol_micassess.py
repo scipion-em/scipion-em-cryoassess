@@ -1,0 +1,170 @@
+# **************************************************************************
+# *
+# * Authors:     Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk)
+# *
+# * MRC Laboratory of Molecular Biology (MRC-LMB)
+# *
+# * This program is free software; you can redistribute it and/or modify
+# * it under the terms of the GNU General Public License as published by
+# * the Free Software Foundation; either version 3 of the License, or
+# * (at your option) any later version.
+# *
+# * This program is distributed in the hope that it will be useful,
+# * but WITHOUT ANY WARRANTY; without even the implied warranty of
+# * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# * GNU General Public License for more details.
+# *
+# * You should have received a copy of the GNU General Public License
+# * along with this program; if not, write to the Free Software
+# * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+# * 02111-1307  USA
+# *
+# *  All comments concerning this program package may be sent to the
+# *  e-mail address 'scipion@cnb.csic.es'
+# *
+# **************************************************************************
+
+import os
+import math
+from emtable import Table
+
+import pyworkflow.utils as pwutils
+from pyworkflow.constants import VERSION_3_0
+from pyworkflow.protocol.constants import STEPS_PARALLEL
+import pyworkflow.protocol.params as params
+from pwem.protocols import ProtPreprocessMicrographs
+
+from cryoassess import Plugin
+
+
+class CryoassessProtMics(ProtPreprocessMicrographs):
+    """
+    Protocol to assess micrographs from K2 or K3 cameras.
+
+    Find more information at https://github.com/cianfrocco-lab/Automatic-cryoEM-preprocessing
+    """
+    _lastUpdateVersion = VERSION_3_0
+    _label = 'assess micrographs'
+
+    def __init__(self, **kwargs):
+        ProtPreprocessMicrographs.__init__(self, **kwargs)
+        self.stepsExecutionMode = STEPS_PARALLEL
+
+    def _createFilenameTemplates(self):
+        """ Centralize how files are called. """
+        myDict = {
+            'input_mics': self._getExtraPath('input_micrographs.star'),
+            'output_mics': self._getExtraPath('good_micrographs.star')
+        }
+
+        self._updateFilenamesDict(myDict)
+
+    # --------------------------- DEFINE param functions ----------------------
+    def _defineParams(self, form):
+        form.addSection(label='Input')
+        form.addParam('inputMicrographs', params.PointerParam,
+                      pointerClass='SetOfMicrographs',
+                      label="Input micrographs", important=True,
+                      help='Select a set of micrographs.')
+        form.addParam('modelFile', params.FileParam,
+                      label='Pre-trained model file',
+                      help='Provide micassess model file.')
+        form.addParam('threshold', params.FloatParam, default=0.1,
+                      label='Threshold',
+                      help='Threshold for classification. Default is 0.1. '
+                           'Higher number will cause more good micrographs '
+                           'being classified as bad.')
+        form.addParam('batchSize', params.IntParam, default=32,
+                      expertLevel=params.LEVEL_ADVANCED,
+                      label='Batch size',
+                      help='Batch size used in prediction. Default is 32. '
+                           'Increasing this number will result in faster '
+                           'prediction, if your GPU memory allows. '
+                           'If memory error/warning appears, you should '
+                           'lower this number.')
+        form.addHidden(params.GPU_LIST, params.StringParam, default='0',
+                       label="Choose GPU IDs",
+                       help="GPU may have several cores. Set it to zero"
+                            " if you do not know what we are talking about."
+                            " First core index is 0, second 1 and so on."
+                            " Micassess can use multiple GPUs - in that case"
+                            " set to i.e. *0 1 2*.")
+        form.addParallelSection(threads=1, mpi=1)
+
+    # --------------------------- INSERT steps functions ----------------------
+    def _insertAllSteps(self):
+        self._createFilenameTemplates()
+        self._insertFunctionStep('convertInputStep')
+        self._insertFunctionStep('runMicAssessStep')
+        self._insertFunctionStep('createOutputStep')
+
+    # --------------------------- STEPS functions -----------------------------
+    def convertInputStep(self):
+        """ Create a star file as expected by cryoassess."""
+        imgSet = self._getInputMicrographs()
+        micsTable = Table(columns=['rlnMicrographName'])
+        for img in imgSet:
+            micsTable.addRow(self._getRelPath(img.getFileName()))
+        with open(self._getFileName('input_mics'), 'w') as f:
+            f.write("# Star file generated with Scipion\n")
+            micsTable.writeStar(f, tableName='')
+
+    def runMicAssessStep(self):
+        """ Call cryoassess with the appropriate parameters. """
+        params = ' '.join(self._getArgs())
+        program = Plugin.getProgram('micassess')
+        self.runJob(program, params, env=Plugin.getEnviron())
+
+    def createOutputStep(self):
+        pass
+
+    # --------------------------- INFO functions ------------------------------
+    def _summary(self):
+        summary = []
+        self._createFilenameTemplates()
+        if not pwutils.exists(self._getFileName("output_mics")):
+            summary.append("Output not ready")
+        else:
+            summary.append("Sorted micrographs into good and bad classes.")
+
+        return summary
+
+    def _validate(self):
+        errors = []
+
+        if self._getCameraType() == 'Falcon':
+            errors.append("This programs only supports K2 or K3 images!")
+
+        return errors
+
+    # --------------------------- UTILS functions -----------------------------
+    def _getArgs(self):
+        args = ['-i %s ' % self._getFileName('input_mics'),
+                '-o %s ' % self._getFileName('output_mics'),
+                '-m %s' % self.modelFile.get(),
+                '-b %d' % self.batchSize.get(),
+                '-t %0.2f' % self.threshold.get(),
+                '-d %s' % self._getCameraType(),
+                '--threads %d' % self.numberOfThreads.get(),
+                '--gpus %(GPU)s'
+                ]
+
+        return args
+
+    def _getInputMicrographs(self):
+        return self.inputMicrographs.get()
+
+    def _getCameraType(self):
+        micsizeX, micsizeY, _ = self._getInputMicrographs().getDim()
+        x = max(micsizeX, micsizeY)
+        y = min(micsizeX, micsizeY)
+        if micsizeX / micsizeY == 1:
+            return 'Falcon'
+        elif math.isclose(x / y, 1.0345, abs_tol=0.001):
+            return 'K2'
+        elif math.isclose(x / y, 1.4076, abs_tol=0.001):
+            return 'K3'
+
+    def _getRelPath(self, fn):
+        """ Return relative path from cwd=extra. """
+        return os.path.relpath(fn, self._getExtraPath())
