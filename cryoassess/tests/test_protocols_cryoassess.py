@@ -36,25 +36,22 @@ class TestCryoassess(BaseTest):
     def setUpClass(cls):
         setupTestProject(cls)
         cls.ds = DataSet.getDataSet('relion_tutorial')
-        cls.avgsFn = cls.ds.getFile('import/averages.mrcs')
+        cls.ds2 = DataSet.getDataSet('mda')
         cls.micsFn = cls.ds.getFile('import/mics/*mrc')
+        cls.avgsFn = cls.ds2.getFile('averages/averages.stk')
 
         print(magentaStr("\n==> Importing data - micrographs:"))
         cls.protImportMics = cls.newProtocol(
             ProtImportMicrographs,
-            samplingRateMode=0,
             filesPath=cls.micsFn,
-            samplingRate=3,
-            magnification=50000,
-            voltage=300,
-            sphericalAberration=0.1)
-        # cls.launchProtocol(cls.protImportMics)
+            samplingRate=3)
+        #cls.launchProtocol(cls.protImportMics)
 
         print(magentaStr("\n==> Importing data - averages:"))
         cls.protImportAvgs = cls.newProtocol(
             ProtImportAverages,
             filesPath=cls.avgsFn,
-            samplingRate=3,
+            samplingRate=5.04,
             checkStack=True)
         cls.launchProtocol(cls.protImportAvgs)
 
@@ -62,18 +59,16 @@ class TestCryoassess(BaseTest):
         print(magentaStr("\n==> Testing cryoassess - micassess:"))
         protAssessMics = self.newProtocol(
             CryoassessProtMics,
-            inputMicrographs=self.protImportMics.outputMicrographs,
-            modelFile="/home/gsharov/soft/scipion3/software/em/cryoassess-models/micassess_051419.h5"
-        )
+            inputMicrographs=self.protImportMics.outputMicrographs)
         self.launchProtocol(protAssessMics)
-        # self._checkOutput(protAssessMics, 300, 400)
+        micSet = getattr(protAssessMics, 'outputMicrographs', None)
+        self.assertIsNotNone(micSet)
 
     def test2DAssess(self):
         print(magentaStr("\n==> Testing cryoassess - 2d assess:"))
         protAssess2D = self.newProtocol(
             CryoassessProt2D,
-            inputAverages=self.protImportAvgs.outputAverages,
-            modelFile="/home/gsharov/soft/scipion3/software/em/cryoassess-models/2dassess_062119.h5"
-        )
+            inputAverages=self.protImportAvgs.outputAverages)
         self.launchProtocol(protAssess2D)
-        # self._checkOutput(protAssess2D, 300, 400)
+        avgSet = getattr(protAssess2D, 'outputAverages', None)
+        self.assertIsNotNone(avgSet)

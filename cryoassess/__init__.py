@@ -44,6 +44,10 @@ class Plugin(pwem.Plugin):
     @classmethod
     def _defineVariables(cls):
         cls._defineVar(CRYOASSESS_ENV_ACTIVATION, DEFAULT_ACTIVATION_CMD)
+        cls._defineEmVar(CRYOASSESS_MODEL_MIC,
+                         'cryoassess-models/micassess_051419.h5')
+        cls._defineEmVar(CRYOASSESS_MODEL_2D,
+                         'cryoassess-models/2dassess_062119.h5')
 
     @classmethod
     def getCryoAssessEnvActivation(cls):
@@ -55,7 +59,7 @@ class Plugin(pwem.Plugin):
 
     @classmethod
     def getEnviron(cls):
-        """ Setup the environment variables needed to launch cryoDRGN. """
+        """ Setup the environment variables needed to launch cryoassess. """
         environ = pwutils.Environ(os.environ)
         if 'PYTHONPATH' in environ:
             # this is required for python virtual env to work
@@ -89,13 +93,16 @@ class Plugin(pwem.Plugin):
         # Create the environment
         installCmd.append('conda create -y -n %s -c anaconda python=3.6 '
                           'pyqt=5 cudnn=7.1.2 numpy=1.15 h5py==2.10.0 '
-                          'intel-openmp=2019.4;' % ENV_NAME)
+                          'matplotlib==3.2.2 intel-openmp=2019.4;' % ENV_NAME)
 
         # Activate the new environment
         installCmd.append('conda activate %s;' % ENV_NAME)
 
         # Install downloaded code
-        installCmd.extend(['pip install -e ../cryoassess-%s[gpu] &&' % version])
+        url = "https://github.com/cianfrocco-lab/Automatic-cryoEM-preprocessing.git"
+        installCmd.extend(['git clone %s cryoassess-master &&'
+                           'cd cryoassess-master && git checkout master &&'
+                           'cd .. && pip install -e cryoassess-master[gpu] &&' % url])
 
         # Flag installation finished
         installCmd.append('touch %s' % CRYOASSESS_INSTALLED)
@@ -106,7 +113,7 @@ class Plugin(pwem.Plugin):
         # keep path since conda likely in there
         installEnvVars = {'PATH': envPath} if envPath else None
         env.addPackage('cryoassess', version=version,
-                       tar='cryoassess-v%s.tgz' % version,
+                       tar='void.tgz',
                        commands=cryoassess_commands,
                        neededProgs=cls.getDependencies(),
                        default=default,

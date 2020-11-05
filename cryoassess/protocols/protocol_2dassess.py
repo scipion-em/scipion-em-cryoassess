@@ -25,14 +25,15 @@
 # **************************************************************************
 
 import os
+from glob import glob
+import re
 
-import pyworkflow.utils as pwutils
 from pyworkflow.constants import VERSION_3_0
-from pyworkflow.protocol.constants import STEPS_PARALLEL
 import pyworkflow.protocol.params as params
 from pwem.protocols import ProtProcessParticles
 
-from cryoassess import Plugin
+from .. import Plugin
+from ..constants import CRYOASSESS_MODEL_2D
 
 
 class CryoassessProt2D(ProtProcessParticles):
@@ -46,14 +47,13 @@ class CryoassessProt2D(ProtProcessParticles):
 
     def __init__(self, **kwargs):
         ProtProcessParticles.__init__(self, **kwargs)
-        self.stepsExecutionMode = STEPS_PARALLEL
 
     def _createFilenameTemplates(self):
         """ Centralize how files are called. """
-        myDict = {
-            'input_cls': self._getExtraPath('input_classes.mrcs'),
-            'output_cls': self._getExtraPath('good_classes.mrcs')
-        }
+        myDict = {'input_cls': self._getExtraPath('input_classes.mrcs')}
+        self._goodTemplate = self._getExtraPath('2DAssess/Good/particle_*.jpg')
+        self._regex = re.compile('particle_(\d)\.jpg')
+        self.goodList = []
 
         self._updateFilenamesDict(myDict)
 
@@ -63,9 +63,6 @@ class CryoassessProt2D(ProtProcessParticles):
         form.addParam('inputAverages', params.PointerParam,
                       pointerClass='SetOfAverages',
                       label="Input averages", important=True)
-        form.addParam('modelFile', params.FileParam,
-                      label='Pre-trained model file',
-                      help='Provide 2dassess model file.')
         form.addParam('batchSize', params.IntParam, default=32,
                       expertLevel=params.LEVEL_ADVANCED,
                       label='Batch size',
@@ -73,7 +70,6 @@ class CryoassessProt2D(ProtProcessParticles):
                            'Increasing this number will result in faster '
                            'prediction. If memory error/warning appears, '
                            'you should lower this number.')
-        form.addParallelSection(threads=1, mpi=1)
 
     # --------------------------- INSERT steps functions ----------------------
     def _insertAllSteps(self):
@@ -95,33 +91,47 @@ class CryoassessProt2D(ProtProcessParticles):
         self.runJob(program, params, env=Plugin.getEnviron())
 
     def createOutputStep(self):
-        pass
+        inputAvg = self.inputAverages.get()
+        outAvgs = self._createSetOfAverages()
+        outAvgs.copyInfo(inputAvg)
+        outAvgs.setObjLabel('good class averages')
+
+        self._getGoodAvgs()
+        if len(self.goodList):
+            outAvgs.copyItems(inputAvg, updateItemCallback=self._addGoodAvg)
+            self._defineOutputs(outputAverages=outAvgs)
+            self._defineSourceRelation(self.inputAverages, outAvgs)
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
         summary = []
-        self._createFilenameTemplates()
-        if not pwutils.exists(self._getFileName("output_cls")):
-            summary.append("Output not ready")
+        if not hasattr(self, 'outputAverages'):
+            summary.append("Output not ready or no good averages found")
         else:
             summary.append("Sorted class averages into good and bad ones.")
 
         return summary
 
-    def _validate(self):
-        errors = []
-
-        return errors
-
     # --------------------------- UTILS functions -----------------------------
     def _getArgs(self):
         args = ['-i %s ' % self._getFileName('input_cls'),
-                '-m %s' % self.modelFile.get(),
-                '-b %d' % self.batchSize.get()
-                ]
+                '-m %s' % Plugin.getVar(CRYOASSESS_MODEL_2D),
+                '-b %d' % self.batchSize.get()]
 
         return args
 
     def _getRelPath(self, fn):
         """ Return relative path from cwd=extra. """
         return os.path.relpath(fn, self._getExtraPath())
+
+    def _getGoodAvgs(self):
+        """ Return the list of good class files. """
+        files = sorted(glob(self._goodTemplate))
+        if files:
+            for i in files:
+                s = self._regex.search(i)
+                self.goodList.append(int(s.group(1)))
+
+    def _addGoodAvg(self, item, row):
+        if item.getObjId() not in self.goodList:
+            setattr(item, "_appendItem", False)

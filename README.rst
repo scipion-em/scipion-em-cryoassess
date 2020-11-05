@@ -64,6 +64,7 @@ cryoassess binaries will be installed automatically with the plugin at **softwar
 
 Configuration variables
 -----------------------
+
 *CONDA_ACTIVATION_CMD*: If undefined, it will rely on conda command being in the
 PATH (not recommended), which can lead to execution problems mixing scipion
 python with conda ones. One example of this could can be seen bellow but
@@ -76,12 +77,19 @@ Path where the cryoassess is installed.
 *CRYOASSESS_ACTIVATION_CMD* (default = conda activate cryoassess-0.1.0):
 Command to activate the cryoassess environment.
 
+The deep-learning models can be downloaded from
+`authors' website <https://cosmic-cryoem.org/software/cryo-assess/>`_ and set with the following variables:
+
+*CRYOASSESS_MODEL_MIC* (default = software/em/cryoassess-models/micassess_051419.h5)
+
+*CRYOASSESS_MODEL_2D* (default = software/em/cryoassess-models/2dassess_062119.h5)
 
 Verifying
 ---------
+
 To check the installation, simply run the following Scipion test:
 
-``scipion test cryoassess.tests.test_protocols_cryoassess.TestCryoAssess``
+``scipion test cryoassess.tests.test_protocols_cryoassess.TestCryoassess``
 
 Supported versions
 ------------------
@@ -91,8 +99,8 @@ Supported versions
 Protocols
 ----------
 
-* mic assess
-* 2D assess
+* assess micrographs
+* assess 2D classes
 
 References
 -----------

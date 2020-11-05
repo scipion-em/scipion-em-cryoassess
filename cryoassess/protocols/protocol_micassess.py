@@ -28,13 +28,12 @@ import os
 import math
 from emtable import Table
 
-import pyworkflow.utils as pwutils
 from pyworkflow.constants import VERSION_3_0
-from pyworkflow.protocol.constants import STEPS_PARALLEL
 import pyworkflow.protocol.params as params
 from pwem.protocols import ProtPreprocessMicrographs
 
-from cryoassess import Plugin
+from .. import Plugin
+from ..constants import CRYOASSESS_MODEL_MIC
 
 
 class CryoassessProtMics(ProtPreprocessMicrographs):
@@ -48,7 +47,6 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
 
     def __init__(self, **kwargs):
         ProtPreprocessMicrographs.__init__(self, **kwargs)
-        self.stepsExecutionMode = STEPS_PARALLEL
 
     def _createFilenameTemplates(self):
         """ Centralize how files are called. """
@@ -64,11 +62,7 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
         form.addSection(label='Input')
         form.addParam('inputMicrographs', params.PointerParam,
                       pointerClass='SetOfMicrographs',
-                      label="Input micrographs", important=True,
-                      help='Select a set of micrographs.')
-        form.addParam('modelFile', params.FileParam,
-                      label='Pre-trained model file',
-                      help='Provide micassess model file.')
+                      label="Input micrographs", important=True)
         form.addParam('threshold', params.FloatParam, default=0.1,
                       label='Threshold',
                       help='Threshold for classification. Default is 0.1. '
@@ -89,14 +83,14 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
                             " First core index is 0, second 1 and so on."
                             " Micassess can use multiple GPUs - in that case"
                             " set to i.e. *0 1 2*.")
-        form.addParallelSection(threads=1, mpi=1)
+        form.addParallelSection(threads=1, mpi=0)
 
     # --------------------------- INSERT steps functions ----------------------
     def _insertAllSteps(self):
         self._createFilenameTemplates()
         self._insertFunctionStep('convertInputStep')
         self._insertFunctionStep('runMicAssessStep')
-        self._insertFunctionStep('createOutputStep')
+        #self._insertFunctionStep('createOutputStep')
 
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self):
@@ -116,24 +110,31 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
         self.runJob(program, params, env=Plugin.getEnviron())
 
     def createOutputStep(self):
-        pass
+        inputMics = self._getInputMicrographs()
+        outMics = self._createSetOfMicrographs()
+        outMics.copyInfo(inputMics)
+        outMics.setObjLabel('good micrographs')
+
+        outMics.copyItems(inputMics, updateItemCallback=self._addGoodMic)
+        self._defineOutputs(outputMicrographs=outMics)
+        self._defineSourceRelation(self.inputMicrographs, outMics)
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
         summary = []
-        self._createFilenameTemplates()
-        if not pwutils.exists(self._getFileName("output_mics")):
-            summary.append("Output not ready")
+        if not hasattr(self, 'outputMicrographs'):
+            summary.append("Output not ready or no good micrographs found")
         else:
-            summary.append("Sorted micrographs into good and bad classes.")
+            summary.append("Sorted micrographs into good and bad ones.")
 
         return summary
 
     def _validate(self):
         errors = []
 
-        if self._getCameraType() == 'Falcon':
-            errors.append("This programs only supports K2 or K3 images!")
+        if self._getCameraType() is None:
+            errors.append("Wrong input dimensions!\n"
+                          "This programs only supports K2 or K3 images!")
 
         return errors
 
@@ -141,13 +142,12 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
     def _getArgs(self):
         args = ['-i %s ' % self._getFileName('input_mics'),
                 '-o %s ' % self._getFileName('output_mics'),
-                '-m %s' % self.modelFile.get(),
+                '-m %s' % Plugin.getVar(CRYOASSESS_MODEL_MIC),
                 '-b %d' % self.batchSize.get(),
                 '-t %0.2f' % self.threshold.get(),
                 '-d %s' % self._getCameraType(),
                 '--threads %d' % self.numberOfThreads.get(),
-                '--gpus %(GPU)s'
-                ]
+                '--gpus %(GPU)s']
 
         return args
 
@@ -158,13 +158,16 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
         micsizeX, micsizeY, _ = self._getInputMicrographs().getDim()
         x = max(micsizeX, micsizeY)
         y = min(micsizeX, micsizeY)
-        if micsizeX / micsizeY == 1:
-            return 'Falcon'
-        elif math.isclose(x / y, 1.0345, abs_tol=0.001):
+        if math.isclose(x / y, 1.0345, abs_tol=0.001):
             return 'K2'
         elif math.isclose(x / y, 1.4076, abs_tol=0.001):
             return 'K3'
+        else:
+            return None
 
     def _getRelPath(self, fn):
         """ Return relative path from cwd=extra. """
         return os.path.relpath(fn, self._getExtraPath())
+
+    def _addGoodMic(self):
+        pass
