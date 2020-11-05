@@ -54,6 +54,7 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
             'input_mics': self._getExtraPath('input_micrographs.star'),
             'output_mics': self._getExtraPath('good_micrographs.star')
         }
+        self._goodList = []
 
         self._updateFilenamesDict(myDict)
 
@@ -90,7 +91,7 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
         self._createFilenameTemplates()
         self._insertFunctionStep('convertInputStep')
         self._insertFunctionStep('runMicAssessStep')
-        #self._insertFunctionStep('createOutputStep')
+        self._insertFunctionStep('createOutputStep')
 
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self):
@@ -107,7 +108,8 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
         """ Call cryoassess with the appropriate parameters. """
         params = ' '.join(self._getArgs())
         program = Plugin.getProgram('micassess')
-        self.runJob(program, params, env=Plugin.getEnviron())
+        self.runJob(program, params, env=Plugin.getEnviron(),
+                    cwd=self._getExtraPath(), numberOfThreads=1)
 
     def createOutputStep(self):
         inputMics = self._getInputMicrographs()
@@ -115,9 +117,11 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
         outMics.copyInfo(inputMics)
         outMics.setObjLabel('good micrographs')
 
-        outMics.copyItems(inputMics, updateItemCallback=self._addGoodMic)
-        self._defineOutputs(outputMicrographs=outMics)
-        self._defineSourceRelation(self.inputMicrographs, outMics)
+        self._getGoodMics()
+        if len(self._goodList):
+            outMics.copyItems(inputMics, updateItemCallback=self._addGoodMic)
+            self._defineOutputs(outputMicrographs=outMics)
+            self._defineSourceRelation(self.inputMicrographs, outMics)
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
@@ -140,14 +144,14 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
 
     # --------------------------- UTILS functions -----------------------------
     def _getArgs(self):
-        args = ['-i %s ' % self._getFileName('input_mics'),
-                '-o %s ' % self._getFileName('output_mics'),
+        args = ['-i %s ' % os.path.basename(self._getFileName('input_mics')),
+                '-o %s ' % os.path.basename(self._getFileName('output_mics')),
                 '-m %s' % Plugin.getVar(CRYOASSESS_MODEL_MIC),
                 '-b %d' % self.batchSize.get(),
                 '-t %0.2f' % self.threshold.get(),
                 '-d %s' % self._getCameraType(),
                 '--threads %d' % self.numberOfThreads.get(),
-                '--gpus %(GPU)s']
+                '--gpus %s' % self.gpuList.get().strip().replace(" ", ",")]
 
         return args
 
@@ -169,5 +173,12 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
         """ Return relative path from cwd=extra. """
         return os.path.relpath(fn, self._getExtraPath())
 
-    def _addGoodMic(self):
-        pass
+    def _getGoodMics(self):
+        table = Table(fileName=self._getFileName('output_mics'), tableName='')
+        micNames = table.getColumnValues('rlnMicrographName')
+        print("FOUND:", micNames)
+        self._goodList.extend(micNames)
+
+    def _addGoodMic(self, item, row):
+        if self._getRelPath(item.getFileName()) not in self._goodList:
+            setattr(item, "_appendItem", False)

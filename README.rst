@@ -1,8 +1,8 @@
 =================
-cryoassess plugin
+Cryoassess plugin
 =================
 
-This plugin provide a wrapper around `cryoassess <https://github.com/cianfrocco-lab/Automatic-cryoEM-preprocessing>`_ software: tools for automatic micrograph and 2D classes assessment.
+This plugin provide a wrapper around `Cryoassess <https://github.com/cianfrocco-lab/Automatic-cryoEM-preprocessing>`_ software tools for automatic micrograph and 2D classes assessment.
 
 .. image:: https://img.shields.io/pypi/v/scipion-em-cryoassess.svg
         :target: https://pypi.python.org/pypi/scipion-em-cryoassess
@@ -70,9 +70,6 @@ PATH (not recommended), which can lead to execution problems mixing scipion
 python with conda ones. One example of this could can be seen bellow but
 depending on your conda version and shell you will need something different:
 CONDA_ACTIVATION_CMD = eval "$(/extra/miniconda3/bin/conda shell.bash hook)"
-
-*CRYOASSESS_HOME* (default = software/em/cryoassess-0.1.0):
-Path where the cryoassess is installed.
 
 *CRYOASSESS_ACTIVATION_CMD* (default = conda activate cryoassess-0.1.0):
 Command to activate the cryoassess environment.

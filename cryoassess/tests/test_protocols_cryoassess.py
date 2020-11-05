@@ -45,7 +45,7 @@ class TestCryoassess(BaseTest):
             ProtImportMicrographs,
             filesPath=cls.micsFn,
             samplingRate=3)
-        #cls.launchProtocol(cls.protImportMics)
+        cls.launchProtocol(cls.protImportMics)
 
         print(magentaStr("\n==> Importing data - averages:"))
         cls.protImportAvgs = cls.newProtocol(
