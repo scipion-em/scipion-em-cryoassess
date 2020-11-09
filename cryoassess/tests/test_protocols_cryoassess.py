@@ -37,14 +37,14 @@ class TestCryoassess(BaseTest):
         setupTestProject(cls)
         cls.ds = DataSet.getDataSet('relion_tutorial')
         cls.ds2 = DataSet.getDataSet('mda')
-        cls.micsFn = cls.ds.getFile('import/mics/*mrc')
+        cls.micsFn = cls.ds.getFile('micrographs/*mrc')
         cls.avgsFn = cls.ds2.getFile('averages/averages.stk')
 
         print(magentaStr("\n==> Importing data - micrographs:"))
         cls.protImportMics = cls.newProtocol(
             ProtImportMicrographs,
             filesPath=cls.micsFn,
-            samplingRate=3)
+            samplingRate=7.08)
         cls.launchProtocol(cls.protImportMics)
 
         print(magentaStr("\n==> Importing data - averages:"))

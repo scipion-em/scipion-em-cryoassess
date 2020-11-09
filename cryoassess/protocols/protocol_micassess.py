@@ -133,14 +133,14 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
 
         return summary
 
-    def _validate(self):
-        errors = []
+    def _warnings(self):
+        warnings = []
 
         if self._getCameraType() is None:
-            errors.append("Wrong input dimensions!\n"
-                          "This programs only supports K2 or K3 images!")
+            warnings.append("Micassess model was trained only on data from "
+                            "Gatan K2 and K3 cameras.")
 
-        return errors
+        return warnings
 
     # --------------------------- UTILS functions -----------------------------
     def _getArgs(self):
@@ -149,9 +149,11 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
                 '-m %s' % Plugin.getVar(CRYOASSESS_MODEL_MIC),
                 '-b %d' % self.batchSize.get(),
                 '-t %0.2f' % self.threshold.get(),
-                '-d %s' % self._getCameraType(),
                 '--threads %d' % self.numberOfThreads.get(),
                 '--gpus %s' % self.gpuList.get().strip().replace(" ", ",")]
+
+        if self._getCameraType() is not None:
+            args += '-d %s' % self._getCameraType()
 
         return args
 
@@ -176,7 +178,6 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
     def _getGoodMics(self):
         table = Table(fileName=self._getFileName('output_mics'), tableName='')
         micNames = table.getColumnValues('rlnMicrographName')
-        print("FOUND:", micNames)
         self._goodList.extend(micNames)
 
     def _addGoodMic(self, item, row):
