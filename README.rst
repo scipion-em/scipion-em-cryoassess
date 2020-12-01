@@ -58,7 +58,7 @@ b) Developer's version
 
        scipion installp -p path_to_scipion-em-cryoassess --devel
 
-cryoassess binaries will be installed automatically with the plugin at **software/em/cryoassess-0.1.0**, but you can also link an existing installation.
+Cryoassess software will be installed automatically with the plugin at **software/em/cryoassess-0.1.0**, but you can also link an existing installation.
 You also have to download training models separately (see below).
 
 **Important:** you need to have conda (miniconda3 or anaconda3) pre-installed to use this program.

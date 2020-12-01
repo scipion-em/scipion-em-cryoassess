@@ -28,7 +28,7 @@ from pyworkflow.tests import BaseTest, DataSet, setupTestProject
 from pwem.protocols import ProtImportMicrographs, ProtImportAverages
 from pyworkflow.utils import magentaStr
 
-from ..protocols import *
+from ..protocols import CryoassessProt2D, CryoassessProtMics
 
 
 class TestCryoassess(BaseTest):

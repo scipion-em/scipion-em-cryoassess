@@ -80,7 +80,7 @@ class CryoassessProt2D(ProtProcessParticles):
 
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self):
-        """ Create a mrcs file as expected by cryoassess."""
+        """ Create a mrcs stack as expected by cryoassess."""
         imgSet = self.inputAverages.get()
         imgSet.writeStack(self._getFileName('input_cls'))
 
@@ -96,6 +96,7 @@ class CryoassessProt2D(ProtProcessParticles):
         outAvgs.copyInfo(inputAvg)
         outAvgs.setObjLabel('good class averages')
 
+        # Search through output files and find good classes
         self._getGoodAvgs()
         if len(self.goodList):
             outAvgs.copyItems(inputAvg, updateItemCallback=self._addGoodAvg)
@@ -114,6 +115,7 @@ class CryoassessProt2D(ProtProcessParticles):
 
     # --------------------------- UTILS functions -----------------------------
     def _getArgs(self):
+        """ Return the list of args for the command. """
         args = ['-i %s ' % self._getFileName('input_cls'),
                 '-m %s' % Plugin.getVar(CRYOASSESS_MODEL_2D),
                 '-b %d' % self.batchSize.get()]
@@ -133,5 +135,6 @@ class CryoassessProt2D(ProtProcessParticles):
                 self.goodList.append(int(s.group(1)))
 
     def _addGoodAvg(self, item, row):
+        """ Callback function to append only good items. """
         if item.getObjId() not in self.goodList:
             setattr(item, "_appendItem", False)

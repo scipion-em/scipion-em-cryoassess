@@ -32,7 +32,7 @@ import pyworkflow as pw
 from .constants import *
 
 
-__version__ = '3.0.0'
+__version__ = '3.0.1'
 _references = ['Li2020']
 _logo = "cryoassess_logo.png"
 
@@ -68,7 +68,8 @@ class Plugin(pwem.Plugin):
 
     @classmethod
     def getDependencies(cls):
-        # try to get CONDA activation command
+        """ Return a list of dependencies. Include conda if
+        activation command was not found. """
         condaActivationCmd = cls.getCondaActivationCmd()
         neededProgs = []
         if not condaActivationCmd:
