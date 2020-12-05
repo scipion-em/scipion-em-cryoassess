@@ -117,6 +117,7 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
         outMics.copyInfo(inputMics)
         outMics.setObjLabel('good micrographs')
 
+        # Parse output file and find good mics
         self._getGoodMics()
         if len(self._goodList):
             outMics.copyItems(inputMics, updateItemCallback=self._addGoodMic)
@@ -144,6 +145,7 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
 
     # --------------------------- UTILS functions -----------------------------
     def _getArgs(self):
+        """ Return the list of args for the command. """
         args = ['-i %s ' % os.path.basename(self._getFileName('input_mics')),
                 '-o %s ' % os.path.basename(self._getFileName('output_mics')),
                 '-m %s' % Plugin.getVar(CRYOASSESS_MODEL_MIC),
@@ -161,6 +163,8 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
         return self.inputMicrographs.get()
 
     def _getCameraType(self):
+        """ Get camera type based on input mic size.
+        :return string or None """
         micsizeX, micsizeY, _ = self._getInputMicrographs().getDim()
         x = max(micsizeX, micsizeY)
         y = min(micsizeX, micsizeY)
@@ -176,10 +180,12 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
         return os.path.relpath(fn, self._getExtraPath())
 
     def _getGoodMics(self):
+        """ Parse output star file and get a list of good mics. """
         table = Table(fileName=self._getFileName('output_mics'), tableName='')
         micNames = table.getColumnValues('rlnMicrographName')
         self._goodList.extend(micNames)
 
     def _addGoodMic(self, item, row):
+        """ Callback function to append only good items. """
         if self._getRelPath(item.getFileName()) not in self._goodList:
             setattr(item, "_appendItem", False)
