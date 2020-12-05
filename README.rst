@@ -58,7 +58,7 @@ b) Developer's version
 
        scipion installp -p path_to_scipion-em-cryoassess --devel
 
-Cryoassess software will be installed automatically with the plugin at **software/em/cryoassess-0.1.0**, but you can also link an existing installation.
+Cryoassess software will be installed automatically with the plugin but you can also use an existing installation by providing *CRYOASSESS_ENV_ACTIVATION* (see below).
 You also have to download training models separately (see below).
 
 **Important:** you need to have conda (miniconda3 or anaconda3) pre-installed to use this program.
@@ -68,11 +68,11 @@ Configuration variables
 
 *CONDA_ACTIVATION_CMD*: If undefined, it will rely on conda command being in the
 PATH (not recommended), which can lead to execution problems mixing scipion
-python with conda ones. One example of this could can be seen bellow but
+python with conda ones. One example of this could can be seen below but
 depending on your conda version and shell you will need something different:
 CONDA_ACTIVATION_CMD = eval "$(/extra/miniconda3/bin/conda shell.bash hook)"
 
-*CRYOASSESS_ACTIVATION_CMD* (default = conda activate cryoassess-0.1.0):
+*CRYOASSESS_ENV_ACTIVATION* (default = conda activate cryoassess-0.1.0):
 Command to activate the cryoassess environment.
 
 The deep-learning models can be downloaded from
