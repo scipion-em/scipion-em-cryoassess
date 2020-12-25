@@ -32,7 +32,7 @@ import pyworkflow as pw
 from .constants import *
 
 
-__version__ = '3.0.1'
+__version__ = '3.0.2'
 _references = ['Li2020']
 _logo = "cryoassess_logo.png"
 
@@ -93,8 +93,7 @@ class Plugin(pwem.Plugin):
 
         # Create the environment
         installCmd.append('conda create -y -n %s -c anaconda python=3.6 '
-                          'pyqt=5 cudnn=7.1.2 numpy=1.15 h5py==2.10.0 '
-                          'matplotlib==3.2.2 intel-openmp=2019.4;' % ENV_NAME)
+                          'pyqt=5 cudnn=7.1.2 intel-openmp=2019.4;' % ENV_NAME)
 
         # Activate the new environment
         installCmd.append('conda activate %s;' % ENV_NAME)

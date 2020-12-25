@@ -72,7 +72,7 @@ python with conda ones. One example of this could can be seen below but
 depending on your conda version and shell you will need something different:
 CONDA_ACTIVATION_CMD = eval "$(/extra/miniconda3/bin/conda shell.bash hook)"
 
-*CRYOASSESS_ENV_ACTIVATION* (default = conda activate cryoassess-0.1.0):
+*CRYOASSESS_ENV_ACTIVATION* (default = conda activate cryoassess-0.2.0):
 Command to activate the cryoassess environment.
 
 The deep-learning models can be downloaded from
@@ -92,7 +92,7 @@ To check the installation, simply run the following Scipion test:
 Supported versions
 ------------------
 
-0.1.0
+0.1.0, 0.2.0
 
 Protocols
 ----------
