@@ -122,10 +122,6 @@ class CryoassessProt2D(ProtProcessParticles):
 
         return args
 
-    def _getRelPath(self, fn):
-        """ Return relative path from cwd=extra. """
-        return os.path.relpath(fn, self._getExtraPath())
-
     def _getGoodAvgs(self):
         """ Return the list of good class files. """
         files = sorted(glob(self._goodTemplate))
