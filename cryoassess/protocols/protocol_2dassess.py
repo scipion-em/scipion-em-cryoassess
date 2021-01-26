@@ -52,7 +52,7 @@ class CryoassessProt2D(ProtProcessParticles):
         """ Centralize how files are called. """
         myDict = {'input_cls': self._getExtraPath('input_classes.mrcs')}
         self._goodTemplate = self._getExtraPath('2DAssess/Good/particle_*.jpg')
-        self._regex = re.compile('particle_(\d)\.jpg')
+        self._regex = re.compile('particle_(\d*)\.jpg')
         self.goodList = []
 
         self._updateFilenamesDict(myDict)
