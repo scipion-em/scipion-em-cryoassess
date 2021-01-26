@@ -27,12 +27,12 @@
 import os
 import pwem
 import pyworkflow.utils as pwutils
-import pyworkflow as pw
+from pyworkflow import Config
 
 from .constants import *
 
 
-__version__ = '3.0.2'
+__version__ = '3.0.3'
 _references = ['Li2020']
 _logo = "cryoassess_logo.png"
 
@@ -53,7 +53,7 @@ class Plugin(pwem.Plugin):
     def getCryoAssessEnvActivation(cls):
         """ Remove the scipion home and activate the conda environment. """
         activation = cls.getVar(CRYOASSESS_ENV_ACTIVATION)
-        scipionHome = pw.Config.SCIPION_HOME + os.path.sep
+        scipionHome = Config.SCIPION_HOME + os.path.sep
 
         return activation.replace(scipionHome, "", 1)
 
