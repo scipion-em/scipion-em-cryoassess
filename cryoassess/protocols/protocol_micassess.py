@@ -155,7 +155,7 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
                 '--gpus %s' % self.gpuList.get().strip().replace(" ", ",")]
 
         if self._getCameraType() is not None:
-            args += '-d %s' % self._getCameraType()
+            args.append('-d %s' % self._getCameraType())
 
         return args
 
