@@ -1,4 +1,4 @@
-3.0.3 - WIP
+3.0.3 - bugfixes
 3.0.2 - add 0.2.0 version support
 3.0.1 - fix README
 3.0.0 - first version of the plugin
