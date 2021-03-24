@@ -326,9 +326,6 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
     def _getInputMicrographs(self):
         return self.inputMicrographs.get()
 
-    def _getInputMicFnsFns(self):
-        return self.inputMicrographs.get().getFileNames()
-
     def _getNewInput(self):
         inputMics = self._getInputMicrographs()
         newMics = []
