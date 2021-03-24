@@ -27,10 +27,14 @@
 import os
 import math
 from emtable import Table
+from shutil import copyfile
 
 from pyworkflow.constants import VERSION_3_0
-import pyworkflow.protocol.params as params
+import pyworkflow.protocol.constants as pwcts
+from pyworkflow.protocol import params, STATUS_NEW
+from pyworkflow.utils.path import copyTree
 from pwem.protocols import ProtPreprocessMicrographs
+from pwem.objects import SetOfMicrographs, Set
 
 from .. import Plugin
 from ..constants import CRYOASSESS_MODEL_MIC
@@ -44,19 +48,13 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
     """
     _lastUpdateVersion = VERSION_3_0
     _label = 'assess micrographs'
+    _goodList = []
+    ended = False
+    asPass = 1
 
     def __init__(self, **kwargs):
         ProtPreprocessMicrographs.__init__(self, **kwargs)
-
-    def _createFilenameTemplates(self):
-        """ Centralize how files are called. """
-        myDict = {
-            'input_mics': self._getExtraPath('input_micrographs.star'),
-            'output_mics': self._getExtraPath('good_micrographs.star')
-        }
-        self._goodList = []
-
-        self._updateFilenamesDict(myDict)
+        self.stepsExecutionMode = pwcts.STEPS_PARALLEL
 
     # --------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
@@ -84,45 +82,310 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
                             " First core index is 0, second 1 and so on."
                             " Micassess can use multiple GPUs - in that case"
                             " set to i.e. *0 1 2*.")
-        form.addParallelSection(threads=1, mpi=0)
+        form.addParallelSection(threads=1, mpi=1)
+
+        form.addSection("Streaming")
+        form.addParam("streamingWarning", params.LabelParam, important=True,
+                      label="The following params are related to how "
+                            "streaming is done in Scipion.")
+        form.addParam("streamingSleepOnWait", params.IntParam, default=5,
+                      label="Sleep when waiting (secs)",
+                      help="If you specify a value greater than zero, "
+                           "it will be the number of seconds that the "
+                           "protocol will sleep when waiting for new "
+                           "input data in streaming mode. ")
+        form.addParam("streamingBatchSize", params.IntParam, default=5,
+                      label="Batch size",
+                      help="This value allows to group several items to be "
+                           "processed inside the same protocol step. You can "
+                           "use the following values: \n"
+                           "*1*    The default behavior, the items will be "
+                           "processed one by one.\n"
+                           "*0*    Put in the same step all the items "
+                           "available. If the sleep time is short, it could be "
+                           "practically the same of one by one. If not, you "
+                           "could have steps with more items. If the steps will "
+                           "be executed in parallel, it is better not to use "
+                           "this option.\n"
+                           "*>1*   The number of items that will be grouped into "
+                           "a step.")
 
     # --------------------------- INSERT steps functions ----------------------
     def _insertAllSteps(self):
-        self._createFilenameTemplates()
-        self._insertFunctionStep('convertInputStep')
-        self._insertFunctionStep('runMicAssessStep')
-        self._insertFunctionStep('createOutputStep')
+      self._insertFunctionStep("initializeStep")
+      self.closeSet = self._insertFunctionStep('closeSetStep', wait=True)
+
+    def _stepsCheck(self):
+      if not self.ended:
+        closeStep = self._getFirstJoinStep()
+        newMics = self._getNewInput()
+        if len(newMics) >= self._getStreamingBatchSize():
+          self.addDoneMicFns(newMics)
+          numPass = self.asPass
+          self.asPass += 1
+          newDeps = self._insertNewMicsSteps(newMics, numPass)
+          closeStep.addPrerequisites(*newDeps)
+
+        if self.checkIfParentFinished():
+          if len(newMics)==0:
+            closeStep.setStatus(STATUS_NEW)
+          else:
+            self.lastRound = True
+        self.updateSteps()
+
+    def _insertNewMicsSteps(self, newMics, numPass):
+      newSteps = []
+      newSteps.append(self._insertFunctionStep('convertInputStep', newMics, numPass, prerequisites=[]))
+      newSteps.append(self._insertFunctionStep('runMicAssessStep', numPass, prerequisites=newSteps[-1:]))
+      newSteps.append(self._insertFunctionStep('createOutputStep', newMics, numPass, prerequisites=newSteps[-1:]))
+      return newSteps
+
 
     # --------------------------- STEPS functions -----------------------------
-    def convertInputStep(self):
+    def initializeStep(self):
+      '''Creates all the final output directories where each batch will be appended'''
+      self.doneMicFns = set([])
+      self.lastRound = False
+      self.createDirectories()
+      self.initTotalStars()
+
+
+    def convertInputStep(self, newMics, numPass):
         """ Create a star file as expected by cryoassess."""
-        imgSet = self._getInputMicrographs()
         micsTable = Table(columns=['rlnMicrographName'])
-        for img in imgSet:
-            micsTable.addRow(self._getRelPath(img.getFileName()))
-        with open(self._getFileName('input_mics'), 'w') as f:
+        for mic in newMics:
+            micsTable.addRow(self._getRelPath(mic.getFileName()))
+        with open(self.getInputFilename(numPass), 'w') as f:
             f.write("# Star file generated with Scipion\n")
             micsTable.writeStar(f, tableName='')
+        self.appendTotalInputStar(numPass)
 
-    def runMicAssessStep(self):
+    def runMicAssessStep(self, numPass):
         """ Call cryoassess with the appropriate parameters. """
-        params = ' '.join(self._getArgs())
+        params = ' '.join(self._getArgs(numPass))
         program = Plugin.getProgram('micassess')
         self.runJob(program, params, env=Plugin.getEnviron(),
-                    cwd=self._getExtraPath(), numberOfThreads=1)
+                    cwd=self._getTmpPath(), numberOfThreads=1)
+        self.appendTotalOutputStar(numPass)
+        self.copyMicAssessOutput()
 
-    def createOutputStep(self):
-        inputMics = self._getInputMicrographs()
-        outMics = self._createSetOfMicrographs()
-        outMics.copyInfo(inputMics)
-        outMics.setObjLabel('good micrographs')
+    def createOutputStep(self, newMics, numPass):
+        outputName = "outputMicrographs"
+        outMics = self._loadOutputSet(SetOfMicrographs, outputName+'.sqlite')
 
         # Parse output file and find good mics
-        self._getGoodMics()
-        if len(self._goodList):
-            outMics.copyItems(inputMics, updateItemCallback=self._addGoodMic)
-            self._defineOutputs(outputMicrographs=outMics)
-            self._defineSourceRelation(self.inputMicrographs, outMics)
+        goodMicNames = self._getGoodMicFns(numPass)
+        if len(goodMicNames):
+            self.curGoodList = goodMicNames
+            outMics.copyItems(newMics, updateItemCallback=self._addGoodMic)
+            outMics = self._updateOutputSet(outputName, outMics)
+
+    def closeSetStep(self):
+      outputName = "outputMicrographs"
+      outMics = self._loadOutputSet(SetOfMicrographs, outputName+'.sqlite')
+      outMics = self._updateOutputSet(outputName, outMics, state=Set.STREAM_CLOSED)
+      #self._defineSourceRelation(self._getInputMicrographs(), outMics)
+      self.ended = True
+
+
+    # --------------------------- UTILS functions -----------------------------
+    def _getStreamingBatchSize(self):
+      if self.lastRound:
+        return 1
+      else:
+        return self.streamingBatchSize.get()
+
+    def getGoodInputMics(self):
+      inpMics = self._getInputMicrographs()
+      goodMics = SetOfMicrographs()
+      goodMicFns = self._getGoodMicFns('')
+      for inpMic in inpMics:
+        if inpMic.getFileName() in goodMicFns:
+          goodMics.append(inpMic)
+      return goodMics
+      
+    def copyMicAssessOutput(self):
+      copyTree(self._getTmpPath('MicAssess/jpgs'), self._getExtraPath('MicAssess/jpgs'))
+      if self._getCameraType() == 'K3':
+        copyTree(self._getTmpPath('MicAssess/K3Left'), self._getExtraPath('MicAssess/K3Left'))
+        copyTree(self._getTmpPath('MicAssess/K3Right'), self._getExtraPath('MicAssess/K3Right'))
+      copyTree(self._getTmpPath('MicAssess/predGood'), self._getExtraPath('MicAssess/predGood'))
+      copyTree(self._getTmpPath('MicAssess/predBad'), self._getExtraPath('MicAssess/predBad'))
+
+    def createDirectories(self):
+      self.micAssessDir = self._getExtraPath("MicAssess")
+      self.jpgsDir = self._getExtraPath("MicAssess/jpgs/data")
+      self.predGoodDir = self._getExtraPath("MicAssess/predGood")
+      self.predBadDir = self._getExtraPath("MicAssess/predBad")
+
+      os.mkdir(self.micAssessDir)
+      os.mkdir(self._getExtraPath("MicAssess/jpgs"))
+      os.mkdir(self.jpgsDir)
+      if self._getCameraType() == 'K3':
+        os.mkdir(self._getExtraPath("MicAssess/K3Left/data"))
+        os.mkdir(self._getExtraPath("MicAssess/K3Right/data"))
+      os.mkdir(self.predGoodDir)
+      os.mkdir(self.predBadDir)
+
+    def initTotalStars(self):
+      totalInputStarFn, totalOutputStar = self.getInputFilename(''), self.getOutputFilename('')
+      sameTxt = 'data_\n\nloop_\n_rlnMicrographName \n'
+      f1, f2 = open(totalInputStarFn, 'w'), open(totalOutputStar, 'w')
+      f1.write("# Star file generated with Scipion\n\n")
+      f1.write(sameTxt), f2.write(sameTxt)
+      f1.close(), f2.close()
+
+    def appendTotalInputStar(self, numPass):
+      totalStarFn = self.getInputFilename('')
+      newMicNames = self._getInputMicFns(numPass)
+      if os.path.exists(totalStarFn):
+        with open(totalStarFn, 'a') as f:
+          for micName in newMicNames:
+            f.write(' '+micName+'\n')
+
+    def appendTotalOutputStar(self, numPass):
+      totalStarFn = self.getOutputFilename('')
+      newMicNames = self._getGoodMicFns(numPass)
+      if os.path.exists(totalStarFn):
+        with open(totalStarFn, 'a') as f:
+          for micName in newMicNames:
+            f.write(' '+micName+'\n')
+
+    def addDoneMicFns(self, newMics):
+      for newMic in newMics:
+        self.doneMicFns.add(newMic.getFileName())
+
+    def checkIfParentFinished(self):
+        inpMics = self._getInputMicrographs()
+        inpMics.loadAllProperties()
+        if not inpMics.isStreamOpen():
+          return True
+        return False
+
+    def _getFirstJoinStepName(self):
+        # This function will be used for streaming, to check which is
+        # the first function that need to wait for all micrographs
+        # to have completed
+        return 'closeSetStep'
+
+    def _getFirstJoinStep(self):
+        for s in self._steps:
+            if s.funcName == self._getFirstJoinStepName():
+                return s
+        return None
+
+    def _updateOutputSet(self, outputName, outputSet, state=Set.STREAM_OPEN):
+      outputSet.setStreamState(state)
+      if self.hasAttribute(outputName):
+        outputSet.write()  # Write to commit changes
+        outputAttr = getattr(self, outputName)
+        # Copy the properties to the object contained in the protcol
+        outputAttr.copy(outputSet, copyId=False)
+        # Persist changes
+        self._store(outputAttr)
+      else:
+        # Here the defineOutputs function will call the write() method
+        self._defineOutputs(**{outputName: outputSet})
+        self._store(outputSet)
+
+      # Close set databaset to avoid locking it
+      outputSet.close()
+      return outputSet
+
+    def _loadOutputSet(self, SetClass, baseName):
+      """
+      Load the output set if it exists or create a new one.
+      """
+      setFile = self._getPath(baseName)
+      if os.path.exists(setFile) and os.path.getsize(setFile) > 0:
+        outputSet = SetClass(filename=setFile)
+        outputSet.loadAllProperties()
+        outputSet.enableAppend()
+      else:
+        outputSet = SetClass(filename=setFile)
+        outputSet.setStreamState(outputSet.STREAM_OPEN)
+        outputSet.setObjLabel('good micrographs')
+        outputSet.copyInfo(self._getInputMicrographs())
+
+      return outputSet
+
+    def _getArgs(self, numPass):
+        """ Return the list of args for the command. """
+        args = ['-i %s ' % os.path.basename(self.getInputFilename(numPass)),
+                '-o %s ' % os.path.basename(self.getOutputFilename(numPass)),
+                '-m %s' % Plugin.getVar(CRYOASSESS_MODEL_MIC),
+                '-b %d' % self.batchSize.get(),
+                '-t %0.2f' % self.threshold.get(),
+                '--threads %d' % self.numberOfThreads.get(),
+                '--gpus %s' % self.gpuList.get().strip().replace(" ", ",")]
+
+        if self._getCameraType() is not None:
+            args.append('-d %s' % self._getCameraType())
+
+        return args
+
+    def _getInputMicrographs(self):
+        return self.inputMicrographs.get()
+
+    def _getInputMicFnsFns(self):
+        return self.inputMicrographs.get().getFileNames()
+
+    def _getNewInput(self):
+        inputMics = self._getInputMicrographs()
+        newMics = []
+        for mic in inputMics:
+          if mic.getFileName() not in self.doneMicFns:
+            newMic = mic.clone()
+            newMics.append(newMic)
+        return newMics
+
+    def getInputFilename(self, numPass):
+        if numPass == '':
+            return self._getExtraPath('input_micrographs{}.star'.format(numPass))
+        else:
+            return self._getTmpPath('input_micrographs{}.star'.format(numPass))
+
+    def getOutputFilename(self, numPass):
+        if numPass == '':
+            return self._getExtraPath('good_micrographs{}.star'.format(numPass))
+        else:
+          return self._getTmpPath('good_micrographs{}.star'.format(numPass))
+
+
+    def _getCameraType(self):
+        """ Get camera type based on input mic size.
+        :return string or None """
+        micsizeX, micsizeY, _ = self._getInputMicrographs().getDim()
+        x = max(micsizeX, micsizeY)
+        y = min(micsizeX, micsizeY)
+        if math.isclose(x / y, 1.0345, abs_tol=0.001):
+            return 'K2'
+        elif math.isclose(x / y, 1.4076, abs_tol=0.001):
+            return 'K3'
+        else:
+            return None
+
+    def _getRelPath(self, fn):
+        """ Return relative path from cwd=extra. """
+        return os.path.relpath(fn, self._getExtraPath())
+
+    def _getInputMicFns(self, numPass):
+      """ Parse input star file and get a list of mics. """
+      table = Table(fileName=self.getInputFilename(numPass), tableName='')
+      micNames = table.getColumnValues('rlnMicrographName')
+      return micNames
+
+    def _getGoodMicFns(self, numPass):
+        """ Parse output star file and get a list of good mics. """
+        table = Table(fileName=self.getOutputFilename(numPass), tableName='')
+        micNames = table.getColumnValues('rlnMicrographName')
+        return micNames
+
+    def _addGoodMic(self, item, row):
+        """ Callback function to append only good items. """
+        if self._getRelPath(item.getFileName()) not in self.curGoodList:
+            setattr(item, "_appendItem", False)
+
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
@@ -142,50 +405,3 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
                             "Gatan K2 and K3 cameras.")
 
         return warnings
-
-    # --------------------------- UTILS functions -----------------------------
-    def _getArgs(self):
-        """ Return the list of args for the command. """
-        args = ['-i %s ' % os.path.basename(self._getFileName('input_mics')),
-                '-o %s ' % os.path.basename(self._getFileName('output_mics')),
-                '-m %s' % Plugin.getVar(CRYOASSESS_MODEL_MIC),
-                '-b %d' % self.batchSize.get(),
-                '-t %0.2f' % self.threshold.get(),
-                '--threads %d' % self.numberOfThreads.get(),
-                '--gpus %s' % self.gpuList.get().strip().replace(" ", ",")]
-
-        if self._getCameraType() is not None:
-            args.append('-d %s' % self._getCameraType())
-
-        return args
-
-    def _getInputMicrographs(self):
-        return self.inputMicrographs.get()
-
-    def _getCameraType(self):
-        """ Get camera type based on input mic size.
-        :return string or None """
-        micsizeX, micsizeY, _ = self._getInputMicrographs().getDim()
-        x = max(micsizeX, micsizeY)
-        y = min(micsizeX, micsizeY)
-        if math.isclose(x / y, 1.0345, abs_tol=0.001):
-            return 'K2'
-        elif math.isclose(x / y, 1.4076, abs_tol=0.001):
-            return 'K3'
-        else:
-            return None
-
-    def _getRelPath(self, fn):
-        """ Return relative path from cwd=extra. """
-        return os.path.relpath(fn, self._getExtraPath())
-
-    def _getGoodMics(self):
-        """ Parse output star file and get a list of good mics. """
-        table = Table(fileName=self._getFileName('output_mics'), tableName='')
-        micNames = table.getColumnValues('rlnMicrographName')
-        self._goodList.extend(micNames)
-
-    def _addGoodMic(self, item, row):
-        """ Callback function to append only good items. """
-        if self._getRelPath(item.getFileName()) not in self._goodList:
-            setattr(item, "_appendItem", False)
