@@ -145,7 +145,6 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
       self.ended = False
       self.asPass = 1
 
-      self.createDirectories()
       self.initTotalStars()
 
     def convertInputStep(self, newMics, numPass):
@@ -204,27 +203,7 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
       return goodMics
       
     def copyMicAssessOutput(self):
-      #copyTree(self._getTmpPath('MicAssess/jpgs'), self._getExtraPath('MicAssess/jpgs'))
-      if self._getCameraType() == 'K3':
-        copyTree(self._getTmpPath('MicAssess/K3Left'), self._getExtraPath('MicAssess/K3Left'))
-        copyTree(self._getTmpPath('MicAssess/K3Right'), self._getExtraPath('MicAssess/K3Right'))
-      copyTree(self._getTmpPath('MicAssess/predGood'), self._getExtraPath('MicAssess/predGood'))
-      copyTree(self._getTmpPath('MicAssess/predBad'), self._getExtraPath('MicAssess/predBad'))
-
-    def createDirectories(self):
-      self.micAssessDir = self._getExtraPath("MicAssess")
-      self.jpgsDir = self._getExtraPath("MicAssess/jpgs/data")
-      self.predGoodDir = self._getExtraPath("MicAssess/predGood")
-      self.predBadDir = self._getExtraPath("MicAssess/predBad")
-
-      os.mkdir(self.micAssessDir)
-      #os.mkdir(self._getExtraPath("MicAssess/jpgs"))
-      #os.mkdir(self.jpgsDir)
-      if self._getCameraType() == 'K3':
-        os.mkdir(self._getExtraPath("MicAssess/K3Left/data"))
-        os.mkdir(self._getExtraPath("MicAssess/K3Right/data"))
-      os.mkdir(self.predGoodDir)
-      os.mkdir(self.predBadDir)
+      copyTree(self._getTmpPath('MicAssess'), self._getExtraPath('MicAssess'))
 
     def initTotalStars(self):
       totalInputStarFn, totalOutputStar = self.getInputFilename(''), self.getOutputFilename('')
