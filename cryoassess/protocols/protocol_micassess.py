@@ -204,7 +204,7 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
       return goodMics
       
     def copyMicAssessOutput(self):
-      copyTree(self._getTmpPath('MicAssess/jpgs'), self._getExtraPath('MicAssess/jpgs'))
+      #copyTree(self._getTmpPath('MicAssess/jpgs'), self._getExtraPath('MicAssess/jpgs'))
       if self._getCameraType() == 'K3':
         copyTree(self._getTmpPath('MicAssess/K3Left'), self._getExtraPath('MicAssess/K3Left'))
         copyTree(self._getTmpPath('MicAssess/K3Right'), self._getExtraPath('MicAssess/K3Right'))
@@ -218,8 +218,8 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
       self.predBadDir = self._getExtraPath("MicAssess/predBad")
 
       os.mkdir(self.micAssessDir)
-      os.mkdir(self._getExtraPath("MicAssess/jpgs"))
-      os.mkdir(self.jpgsDir)
+      #os.mkdir(self._getExtraPath("MicAssess/jpgs"))
+      #os.mkdir(self.jpgsDir)
       if self._getCameraType() == 'K3':
         os.mkdir(self._getExtraPath("MicAssess/K3Left/data"))
         os.mkdir(self._getExtraPath("MicAssess/K3Right/data"))
