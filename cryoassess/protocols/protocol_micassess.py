@@ -27,7 +27,6 @@
 import os
 import math
 from emtable import Table
-from shutil import copyfile
 
 from pyworkflow.constants import VERSION_3_0
 import pyworkflow.protocol.constants as pwcts
