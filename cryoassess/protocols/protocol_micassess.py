@@ -47,9 +47,6 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
     """
     _lastUpdateVersion = VERSION_3_0
     _label = 'assess micrographs'
-    _goodList = []
-    ended = False
-    asPass = 1
 
     def __init__(self, **kwargs):
         ProtPreprocessMicrographs.__init__(self, **kwargs)
@@ -145,9 +142,11 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
       '''Creates all the final output directories where each batch will be appended'''
       self.doneMicFns = set([])
       self.lastRound = False
+      self.ended = False
+      self.asPass = 1
+
       self.createDirectories()
       self.initTotalStars()
-
 
     def convertInputStep(self, newMics, numPass):
         """ Create a star file as expected by cryoassess."""
