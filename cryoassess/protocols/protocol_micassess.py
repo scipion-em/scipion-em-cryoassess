@@ -178,13 +178,14 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
         if len(goodMicNames):
             self.curGoodList = goodMicNames
             outMics.copyItems(newMics, updateItemCallback=self._addGoodMic)
-            outMics = self._updateOutputSet(outputName, outMics)
+            self._updateOutputSet(outputName, outMics)
 
     def closeSetStep(self):
       outputName = "outputMicrographs"
       outMics = self._loadOutputSet(SetOfMicrographs, outputName+'.sqlite')
-      outMics = self._updateOutputSet(outputName, outMics, state=Set.STREAM_CLOSED)
-      #self._defineSourceRelation(self._getInputMicrographs(), outMics)
+      self._updateOutputSet(outputName, outMics, state=Set.STREAM_CLOSED)
+
+      self._defineSourceRelation(self._getInputMicrographs(), self.outputMicrographs)
       self.ended = True
 
 
@@ -290,7 +291,6 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
 
       # Close set databaset to avoid locking it
       outputSet.close()
-      return outputSet
 
     def _loadOutputSet(self, SetClass, baseName):
       """
