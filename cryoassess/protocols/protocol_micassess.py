@@ -80,31 +80,9 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
                             " set to i.e. *0 1 2*.")
         form.addParallelSection(threads=1, mpi=1)
 
-        form.addSection("Streaming")
-        form.addParam("streamingWarning", params.LabelParam, important=True,
-                      label="The following params are related to how "
-                            "streaming is done in Scipion.")
-        form.addParam("streamingSleepOnWait", params.IntParam, default=5,
-                      label="Sleep when waiting (secs)",
-                      help="If you specify a value greater than zero, "
-                           "it will be the number of seconds that the "
-                           "protocol will sleep when waiting for new "
-                           "input data in streaming mode. ")
-        form.addParam("streamingBatchSize", params.IntParam, default=5,
-                      label="Batch size",
-                      help="This value allows to group several items to be "
-                           "processed inside the same protocol step. You can "
-                           "use the following values: \n"
-                           "*1*    The default behavior, the items will be "
-                           "processed one by one.\n"
-                           "*0*    Put in the same step all the items "
-                           "available. If the sleep time is short, it could be "
-                           "practically the same of one by one. If not, you "
-                           "could have steps with more items. If the steps will "
-                           "be executed in parallel, it is better not to use "
-                           "this option.\n"
-                           "*>1*   The number of items that will be grouped into "
-                           "a step.")
+        self._defineStreamingParams(form)
+        form.getParam('streamingBatchSize').setDefault(5)
+        form.getParam('streamingSleepOnWait').setDefault(5)
 
     # --------------------------- INSERT steps functions ----------------------
     def _insertAllSteps(self):
