@@ -28,7 +28,7 @@ import os
 import math
 from emtable import Table
 
-from pyworkflow.constants import VERSION_3_0
+from pyworkflow.constants import BETA
 import pyworkflow.protocol.constants as pwcts
 from pyworkflow.protocol import params, STATUS_NEW
 from pyworkflow.utils.path import copyTree
@@ -45,8 +45,8 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
 
     Find more information at https://github.com/cianfrocco-lab/Automatic-cryoEM-preprocessing
     """
-    _lastUpdateVersion = VERSION_3_0
     _label = 'assess micrographs'
+    _devStatus = BETA
 
     def __init__(self, **kwargs):
         ProtPreprocessMicrographs.__init__(self, **kwargs)
