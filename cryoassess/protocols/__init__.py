@@ -26,3 +26,4 @@
 
 from .protocol_micassess import CryoassessProtMics
 from .protocol_2dassess import CryoassessProt2D
+from .protocol_movieAssess import CryoassessProtMovies
