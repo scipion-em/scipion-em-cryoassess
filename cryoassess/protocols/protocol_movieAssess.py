@@ -278,14 +278,12 @@ class CryoassessProtMovies(ProtAlignMovies):
       closeStep = self._getFirstJoinStep()
       
       newMovies = self._getNewMovies()
-      print('New movies: ', len(newMovies))
       if len(newMovies) > 0:
         self.addDoneMovieFns(newMovies)
         newDeps = self._insertNewMoviesSteps(newMovies)
         closeStep.addPrerequisites(*newDeps)
       
       newMics = self._getNewMics()
-      print('New mics: ', len(newMics))
       if len(newMics) >= self._getStreamingBatchSize():
         self.addDoneMicFns(newMics)
         numPass = self.asPass
@@ -337,7 +335,6 @@ class CryoassessProtMovies(ProtAlignMovies):
     """ Create a star file as expected by cryoassess."""
     micsTable = Table(columns=['rlnMicrographName'])
     for mic in newMics:
-      print('mic relPath: ', self._getRelPath(mic.getFileName()))
       micsTable.addRow(self._getRelPath(mic.getFileName()))
     with open(self.getInputFilename(numPass), 'w') as f:
       f.write("# Star file generated with Scipion\n")
