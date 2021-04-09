@@ -165,12 +165,16 @@ class CryoassessProtMovies(ProtAlignMovies):
 
   INTERP_LINEAR = 0
   INTERP_CUBIC = 1
-
   # Map to xmipp interpolation values in command line
   INTERP_MAP = {INTERP_LINEAR: 1, INTERP_CUBIC: 3}
 
   outputAveragesName = 'allAverages'
   outputMicsName, outputMoviesName = 'outputGoodAverages', 'outputGoodMovies'
+
+  doneMovieFns, doneMicFns = set([]), set([])
+  newAveragesDic, saveSteps = {}, []
+  lastRound, ended = False, False
+  asPass = 1
 
   def __init__(self, **kwargs):
     ProtPreprocessMicrographs.__init__(self, **kwargs)
@@ -289,7 +293,10 @@ class CryoassessProtMovies(ProtAlignMovies):
         numPass = self.asPass
         self.asPass += 1
         newDeps = self._insertNewMicsSteps(newMics, numPass)
-        closeStep.addPrerequisites(*newDeps)
+        #Priorizing the newMicsSteps
+        for step in self._steps:
+          if not step.getIndex() in newDeps:
+            step.addPrerequisites(*newDeps)
 
       if self.checkIfParentFinished() and not self.checkIfMoviesPending(newMovies):
         if len(newMics) == 0:
@@ -301,9 +308,13 @@ class CryoassessProtMovies(ProtAlignMovies):
   def _insertNewMoviesSteps(self, newMovies):
     newSteps = []
     for movie in newMovies:
-      # Prerequisites to save the Averages: movie is preprocessed and previous average is already saved (avoid concurrency)
-      writePrer = newSteps[-1:] if len(newSteps) > 0 else []
-      newSteps.append(self._insertFunctionStep('preprocessMovieStep', movie.clone(), prerequisites=writePrer))
+      # Prerequisites to save the Averages: movie is preprocessed and previous averages are already saved (avoid concurrency)
+      mClone = movie.clone()
+      newSteps.append(self._insertFunctionStep('preprocessMovieStep', mClone, prerequisites=[]))
+      writePrer = [newSteps[-1], *self.saveSteps]
+      newSaveSteps = self._insertFunctionStep('saveAverageStep', mClone, prerequisites=writePrer)
+      self.saveSteps.append(newSaveSteps)
+      newSteps.append(newSaveSteps)
     return newSteps
 
   def _insertNewMicsSteps(self, newMics, numPass):
@@ -316,16 +327,13 @@ class CryoassessProtMovies(ProtAlignMovies):
   # --------------------------- STEPS functions -----------------------------
   def initializeStep(self):
     '''Creates all the final output directories where each batch will be appended'''
-    self.doneMovieFns, self.doneMicFns = set([]), set([])
-    self.lastRound = False
-    self.ended = False
-    self.asPass = 1
-
     self.initTotalStars()
     
   def preprocessMovieStep(self, movie):
-      avFn = self._processMovie(movie)
-      newAverage = self.createMicrograph(avFn, movie)
+      self.newAveragesDic[movie] = self._processMovie(movie)
+
+  def saveAverageStep(self, movie):
+      newAverage = self.createMicrograph(self.newAveragesDic[movie], movie)
 
       outMics = self._getAveragedMicrographs()
       outMics.append(newAverage)
@@ -412,15 +420,15 @@ class CryoassessProtMovies(ProtAlignMovies):
       roi = None
 
     gainFn = self.inputMovies.get().getGain()
-    ext = pwutils.getExt(self.inputMovies.get().getFirstItem().getFileName()).lower()
-    if self.inputMovies.get().getGain() and ext in ['.tif', '.tiff']:
+    ext = self.getMovieExt(movie)
+    if gainFn and ext in ['.tif', '.tiff']:
       self.flipY = True
-      inGainFn = self.inputMovies.get().getGain()
+      inGainFn = gainFn
       gainFn = flipYImage(inGainFn, outDir=self._getExtraPath())
 
     self.averageMovie(movie, inputMd, outputMicFn, self.binFactor.get(),
                       roi, self.inputMovies.get().getDark(), gainFn,
-                      splineOrder=self.INTERP_MAP[self.splineOrder.get()])
+                      splineOrder=self.INTERP_MAP[self.splineOrder.get()], outxmd='""')
     return outputMicFn
 
   def _getStreamingBatchSize(self):
@@ -638,6 +646,10 @@ class CryoassessProtMovies(ProtAlignMovies):
     """ Callback function to append only good items. """
     if self._getRelPath(self._getExtraPath(self._getOutputMicName(item))) not in self.curGoodList:
       setattr(item, "_appendItem", False)
+
+  def getMovieExt(self, movie):
+    movieExt = pwutils.getExt(movie.getFileName()).lower()
+    return movieExt
 
   # --------------------------- INFO functions ------------------------------
   def _summary(self):
