@@ -129,7 +129,7 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
         """ Create a star file as expected by cryoassess."""
         micsTable = Table(columns=['rlnMicrographName'])
         for mic in newMics:
-            micsTable.addRow(self._getRelPath(mic.getFileName()))
+            micsTable.addRow(os.path.abspath(mic.getFileName()))
         with open(self.getInputFilename(numPass), 'w') as f:
             f.write("# Star file generated with Scipion\n")
             micsTable.writeStar(f, tableName='')
