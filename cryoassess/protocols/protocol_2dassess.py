@@ -24,11 +24,10 @@
 # *
 # **************************************************************************
 
-import os
 from glob import glob
 import re
 
-from pyworkflow.constants import VERSION_3_0
+from pyworkflow.constants import BETA
 import pyworkflow.protocol.params as params
 from pwem.protocols import ProtProcessParticles
 
@@ -42,8 +41,8 @@ class CryoassessProt2D(ProtProcessParticles):
 
     Find more information at https://github.com/cianfrocco-lab/Automatic-cryoEM-preprocessing
     """
-    _lastUpdateVersion = VERSION_3_0
     _label = 'assess 2D classes'
+    _devStatus = BETA
 
     def __init__(self, **kwargs):
         ProtProcessParticles.__init__(self, **kwargs)
