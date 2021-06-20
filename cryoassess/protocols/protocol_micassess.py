@@ -98,19 +98,19 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
         if not self.ended:
             closeStep = self._getFirstJoinStep()
             newMics = self._getNewInput()
-        if len(newMics) >= self._getStreamingBatchSize():
-            self.addDoneMicFns(newMics)
-            numPass = self.asPass
-            self.asPass += 1
-            newDeps = self._insertNewMicsSteps(newMics, numPass)
-            closeStep.addPrerequisites(*newDeps)
+            if len(newMics) >= self._getStreamingBatchSize():
+                self.addDoneMicFns(newMics)
+                numPass = self.asPass
+                self.asPass += 1
+                newDeps = self._insertNewMicsSteps(newMics, numPass)
+                closeStep.addPrerequisites(*newDeps)
 
-        if self.checkIfParentFinished():
-            if len(newMics) == 0:
-                closeStep.setStatus(STATUS_NEW)
-            else:
-                self.lastRound = True
-        self.updateSteps()
+            if self.checkIfParentFinished():
+                if len(newMics) == 0:
+                    closeStep.setStatus(STATUS_NEW)
+                else:
+                    self.lastRound = True
+            self.updateSteps()
 
     def _insertNewMicsSteps(self, newMics, numPass):
         newSteps = []
@@ -147,7 +147,7 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
         self.runJob(program, params, env=Plugin.getEnviron(),
                     cwd=self._getTmpPath(), numberOfThreads=1)
         self.appendTotalOutputStar(numPass)
-        self.copyMicAssessOutput()
+        self.copyMicAssessOutput(numPass)
 
     def createOutputStep(self, newMics, numPass):
         outputName = "outputMicrographs"
@@ -184,8 +184,8 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
                 goodMics.append(inpMic)
         return goodMics
 
-    def copyMicAssessOutput(self):
-        copyTree(self._getTmpPath('MicAssess'), self._getExtraPath('MicAssess'))
+    def copyMicAssessOutput(self, numPass):
+        copyTree(self._getTmpPath('output%s' % numPass), self._getExtraPath('MicAssess'))
 
     def initTotalStars(self):
         totalInputStarFn, totalOutputStar = self.getInputFilename(''), self.getOutputFilename('')
@@ -271,7 +271,7 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
     def _getArgs(self, numPass):
         """ Return the list of args for the command. """
         args = ['-i %s ' % os.path.basename(self.getInputFilename(numPass)),
-                '-o %s ' % os.path.basename(self.getOutputFilename(numPass)),
+                '-o output%s ' % numPass,
                 '-m %s' % Plugin.getVar(CRYOASSESS_MODEL_MIC),
                 '-b %d' % self.batchSize.get(),
                 '--t1 %0.2f' % self.threshold.get(),
@@ -304,9 +304,9 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
 
     def getOutputFilename(self, numPass):
         if numPass == '':
-            return self._getExtraPath('micrographs_good{}.star'.format(numPass))
+            return self._getExtraPath('input_micrographs{}_good.star'.format(numPass))
         else:
-            return self._getTmpPath('micrographs_good{}.star'.format(numPass))
+            return self._getTmpPath('input_micrographs{}_good.star'.format(numPass))
 
     def _getCameraType(self):
         """ Get camera type based on input mic size.
