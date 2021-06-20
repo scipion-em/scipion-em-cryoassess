@@ -29,10 +29,9 @@ def getCryoAssessEnvName(version):
     return "cryoassess-%s" % version
 
 
-V0_1_0 = "0.1.0"
-V0_2_0 = "0.2.0"
-VERSIONS = [V0_1_0, V0_2_0]
-CRYOASSESS_DEFAULT_VER_NUM = V0_2_0
+V1_0_0 = "1.0.0"
+VERSIONS = [V1_0_0]
+CRYOASSESS_DEFAULT_VER_NUM = V1_0_0
 
 DEFAULT_ENV_NAME = getCryoAssessEnvName(CRYOASSESS_DEFAULT_VER_NUM)
 DEFAULT_ACTIVATION_CMD = 'conda activate ' + DEFAULT_ENV_NAME
