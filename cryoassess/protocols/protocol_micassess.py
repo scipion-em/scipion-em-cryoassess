@@ -321,10 +321,6 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
         else:
             return None
 
-    def _getRelPath(self, fn):
-        """ Return relative path from cwd=extra. """
-        return os.path.relpath(fn, self._getExtraPath())
-
     def _getInputMicFns(self, numPass):
         """ Parse input star file and get a list of mics. """
         table = Table(fileName=self.getInputFilename(numPass), tableName='')
@@ -339,7 +335,7 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
 
     def _addGoodMic(self, item, row):
         """ Callback function to append only good items. """
-        if self._getRelPath(item.getFileName()) not in self.curGoodList:
+        if os.path.abspath(item.getFileName()) not in self.curGoodList:
             setattr(item, "_appendItem", False)
 
     # --------------------------- INFO functions ------------------------------
