@@ -32,7 +32,7 @@ from pyworkflow import Config
 from .constants import *
 
 
-__version__ = '3.0.4'
+__version__ = '3.1'
 _references = ['Li2020']
 _logo = "cryoassess_logo.png"
 
@@ -44,10 +44,7 @@ class Plugin(pwem.Plugin):
     @classmethod
     def _defineVariables(cls):
         cls._defineVar(CRYOASSESS_ENV_ACTIVATION, DEFAULT_ACTIVATION_CMD)
-        cls._defineEmVar(CRYOASSESS_MODEL_MIC,
-                         'cryoassess-models/micassess_051419.h5')
-        cls._defineEmVar(CRYOASSESS_MODEL_2D,
-                         'cryoassess-models/2dassess_062119.h5')
+        cls._defineEmVar(CRYOASSESS_MODELS, 'cryoassess-models')
 
     @classmethod
     def getCryoAssessEnvActivation(cls):
@@ -92,8 +89,8 @@ class Plugin(pwem.Plugin):
         installCmd = [cls.getCondaActivationCmd()]
 
         # Create the environment
-        installCmd.append('conda create -y -n %s -c anaconda python=3.6 '
-                          'pyqt=5 cudnn=7.1.2 intel-openmp=2019.4;' % ENV_NAME)
+        installCmd.append('conda create -y -n %s -c anaconda -c conda-forge '
+                          'python=3.7 cudatoolkit=11.2 cudnn=8.1;' % ENV_NAME)
 
         # Activate the new environment
         installCmd.append('conda activate %s;' % ENV_NAME)
@@ -102,7 +99,7 @@ class Plugin(pwem.Plugin):
         url = "https://github.com/cianfrocco-lab/Automatic-cryoEM-preprocessing.git"
         installCmd.extend(['git clone %s cryoassess-master &&'
                            'cd cryoassess-master && git checkout master &&'
-                           'cd .. && pip install -e cryoassess-master[gpu] &&' % url])
+                           'cd .. && pip install -e cryoassess-master &&' % url])
 
         # Flag installation finished
         installCmd.append('touch %s' % CRYOASSESS_INSTALLED)
