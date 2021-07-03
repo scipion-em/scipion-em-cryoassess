@@ -76,11 +76,9 @@ CONDA_ACTIVATION_CMD = eval "$(/extra/miniconda3/bin/conda shell.bash hook)"
 Command to activate the cryoassess environment.
 
 The deep-learning models can be downloaded from
-`authors' website <https://cosmic-cryoem.org/software/cryo-assess/>`_ and set with the following variables:
+`authors' website <https://cosmic-cryoem.org/software/cryo-assess/>`_ and the folder with models is set with:
 
-*CRYOASSESS_MODEL_MIC* (default = software/em/cryoassess-models)
-
-*CRYOASSESS_MODEL_2D* (default = software/em/cryoassess-models/2dassess_062119.h5)
+*CRYOASSESS_MODELS* (default = software/em/cryoassess-models)
 
 Verifying
 ---------

@@ -36,7 +36,7 @@ from pwem.protocols import ProtPreprocessMicrographs
 from pwem.objects import SetOfMicrographs, Set
 
 from .. import Plugin
-from ..constants import CRYOASSESS_MODEL_MIC
+from ..constants import CRYOASSESS_MODELS
 
 
 class CryoassessProtMics(ProtPreprocessMicrographs):
@@ -272,7 +272,7 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
         """ Return the list of args for the command. """
         args = ['-i %s ' % os.path.basename(self.getInputFilename(numPass)),
                 '-o output%s ' % numPass,
-                '-m %s' % Plugin.getVar(CRYOASSESS_MODEL_MIC),
+                '-m %s' % Plugin.getVar(CRYOASSESS_MODELS),
                 '-b %d' % self.batchSize.get(),
                 '--t1 %0.2f' % self.threshold.get(),
                 '--t2 %0.2f' % self.threshold2.get(),
@@ -339,6 +339,14 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
             setattr(item, "_appendItem", False)
 
     # --------------------------- INFO functions ------------------------------
+    def _validate(self):
+        errors = []
+
+        if not os.path.isdir(Plugin.getVar(CRYOASSESS_MODELS)):
+            errors.append("Directory with models not found: %s" % CRYOASSESS_MODELS)
+
+        return errors
+
     def _summary(self):
         summary = []
         if not hasattr(self, 'outputMicrographs'):

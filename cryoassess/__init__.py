@@ -44,9 +44,7 @@ class Plugin(pwem.Plugin):
     @classmethod
     def _defineVariables(cls):
         cls._defineVar(CRYOASSESS_ENV_ACTIVATION, DEFAULT_ACTIVATION_CMD)
-        cls._defineEmVar(CRYOASSESS_MODEL_MIC, 'cryoassess-models')
-        cls._defineEmVar(CRYOASSESS_MODEL_2D,
-                         'cryoassess-models/2dassess_062119.h5')
+        cls._defineEmVar(CRYOASSESS_MODELS, 'cryoassess-models')
 
     @classmethod
     def getCryoAssessEnvActivation(cls):

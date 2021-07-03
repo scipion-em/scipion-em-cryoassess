@@ -32,7 +32,7 @@ import pyworkflow.protocol.params as params
 from pwem.protocols import ProtProcessParticles
 
 from .. import Plugin
-from ..constants import CRYOASSESS_MODEL_2D
+from ..constants import CRYOASSESS_MODELS
 
 
 class CryoassessProt2D(ProtProcessParticles):
@@ -116,7 +116,7 @@ class CryoassessProt2D(ProtProcessParticles):
     def _getArgs(self):
         """ Return the list of args for the command. """
         args = ['-i %s ' % self._getFileName('input_cls'),
-                '-m %s' % Plugin.getVar(CRYOASSESS_MODEL_2D),
+                '-m %s/2dassess_062119.h5' % Plugin.getVar(CRYOASSESS_MODELS),
                 '-b %d' % self.batchSize.get()]
 
         return args
