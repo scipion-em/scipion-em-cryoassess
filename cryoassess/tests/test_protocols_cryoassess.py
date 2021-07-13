@@ -62,7 +62,8 @@ class TestCryoassess(BaseTest):
             inputMicrographs=self.protImportMics.outputMicrographs)
         self.launchProtocol(protAssessMics)
         micSet = getattr(protAssessMics, 'outputMicrographs', None)
-        self.assertIsNotNone(micSet)
+        self.assertEqual(len(micSet), self._getNumberOfGood(protAssessMics))
+
 
     def test2DAssess(self):
         print(magentaStr("\n==> Testing cryoassess - 2d assess:"))
@@ -72,3 +73,8 @@ class TestCryoassess(BaseTest):
         self.launchProtocol(protAssess2D)
         avgSet = getattr(protAssess2D, 'outputAverages', None)
         self.assertIsNotNone(avgSet)
+
+    def _getNumberOfGood(self, protMicAssess):
+        with open(protMicAssess._getExtraPath('input_micrographs_good.star')) as f:
+            lines = f.readlines()
+        return len(lines) - 4
