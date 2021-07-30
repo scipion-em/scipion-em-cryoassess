@@ -60,12 +60,12 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
                       label="Input micrographs", important=True)
         form.addParam('threshold', params.FloatParam, default=0.1,
                       label='Threshold 1',
-                      help='Threshold for good/bad classification. Default is 0.1. '
+                      help='Threshold for good/bad classification (step 1). Default is 0.1. '
                            'Higher number will cause more good micrographs '
                            'being classified as bad.')
         form.addParam('threshold2', params.FloatParam, default=0.1,
                       label='Threshold 2',
-                      help='Threshold for great/decent classification. Default is 0.1. '
+                      help='Threshold for great/decent classification (step 2). Default is 0.1. '
                            'Higher number will cause more good micrographs '
                            'being classified as bad.')
         form.addParam('batchSize', params.IntParam, default=32,
