@@ -36,7 +36,7 @@ from pwem.protocols import ProtPreprocessMicrographs
 from pwem.objects import SetOfMicrographs, Set
 
 from .. import Plugin
-from ..constants import CRYOASSESS_MODEL_MIC
+from ..constants import CRYOASSESS_MODELS
 
 
 class CryoassessProtMics(ProtPreprocessMicrographs):
@@ -59,8 +59,13 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
                       pointerClass='SetOfMicrographs',
                       label="Input micrographs", important=True)
         form.addParam('threshold', params.FloatParam, default=0.1,
-                      label='Threshold',
-                      help='Threshold for classification. Default is 0.1. '
+                      label='Threshold 1',
+                      help='Threshold for good/bad classification (step 1). Default is 0.1. '
+                           'Higher number will cause more good micrographs '
+                           'being classified as bad.')
+        form.addParam('threshold2', params.FloatParam, default=0.1,
+                      label='Threshold 2',
+                      help='Threshold for great/decent classification (step 2). Default is 0.1. '
                            'Higher number will cause more good micrographs '
                            'being classified as bad.')
         form.addParam('batchSize', params.IntParam, default=32,
@@ -86,44 +91,44 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
 
     # --------------------------- INSERT steps functions ----------------------
     def _insertAllSteps(self):
-      self._insertFunctionStep("initializeStep")
-      self.closeSet = self._insertFunctionStep('closeSetStep', wait=True)
+        self._insertFunctionStep("initializeStep")
+        self.closeSet = self._insertFunctionStep('closeSetStep', wait=True)
 
     def _stepsCheck(self):
-      if not self.ended:
-        closeStep = self._getFirstJoinStep()
-        newMics = self._getNewInput()
-        if len(newMics) >= self._getStreamingBatchSize():
-          self.addDoneMicFns(newMics)
-          numPass = self.asPass
-          self.asPass += 1
-          newDeps = self._insertNewMicsSteps(newMics, numPass)
-          closeStep.addPrerequisites(*newDeps)
+        if not self.ended:
+            closeStep = self._getFirstJoinStep()
+            newMics = self._getNewInput()
+            if len(newMics) >= self._getStreamingBatchSize():
+                self.addDoneMicFns(newMics)
+                numPass = self.asPass
+                self.asPass += 1
+                newDeps = self._insertNewMicsSteps(newMics, numPass)
+                closeStep.addPrerequisites(*newDeps)
 
-        if self.checkIfParentFinished():
-          if len(newMics)==0:
-            closeStep.setStatus(STATUS_NEW)
-          else:
-            self.lastRound = True
-        self.updateSteps()
+            if self.checkIfParentFinished():
+                if len(newMics) == 0:
+                    closeStep.setStatus(STATUS_NEW)
+                else:
+                    self.lastRound = True
+            self.updateSteps()
 
     def _insertNewMicsSteps(self, newMics, numPass):
-      newSteps = []
-      newSteps.append(self._insertFunctionStep('convertInputStep', newMics, numPass, prerequisites=[]))
-      newSteps.append(self._insertFunctionStep('runMicAssessStep', numPass, prerequisites=newSteps[-1:]))
-      newSteps.append(self._insertFunctionStep('createOutputStep', newMics, numPass, prerequisites=newSteps[-1:]))
-      return newSteps
-
+        newSteps = []
+        newSteps.append(self._insertFunctionStep('convertInputStep', newMics, numPass, prerequisites=[]))
+        newSteps.append(self._insertFunctionStep('runMicAssessStep', numPass, prerequisites=newSteps[-1:]))
+        newSteps.append(self._insertFunctionStep('createOutputStep', newMics, numPass, prerequisites=newSteps[-1:]))
+        return newSteps
 
     # --------------------------- STEPS functions -----------------------------
     def initializeStep(self):
-      '''Creates all the final output directories where each batch will be appended'''
-      self.doneMicFns = set([])
-      self.lastRound = False
-      self.ended = False
-      self.asPass = 1
+        """ Creates all the final output directories where
+        each batch will be appended. """
+        self.doneMicFns = set([])
+        self.lastRound = False
+        self.ended = False
+        self.asPass = 1
 
-      self.initTotalStars()
+        self.initTotalStars()
 
     def convertInputStep(self, newMics, numPass):
         """ Create a star file as expected by cryoassess."""
@@ -142,11 +147,11 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
         self.runJob(program, params, env=Plugin.getEnviron(),
                     cwd=self._getTmpPath(), numberOfThreads=1)
         self.appendTotalOutputStar(numPass)
-        self.copyMicAssessOutput()
+        self.copyMicAssessOutput(numPass)
 
     def createOutputStep(self, newMics, numPass):
         outputName = "outputMicrographs"
-        outMics = self._loadOutputSet(SetOfMicrographs, outputName+'.sqlite')
+        outMics = self._loadOutputSet(SetOfMicrographs, outputName + '.sqlite')
 
         # Parse output file and find good mics
         goodMicNames = self._getGoodMicFns(numPass)
@@ -156,66 +161,65 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
             self._updateOutputSet(outputName, outMics)
 
     def closeSetStep(self):
-      outputName = "outputMicrographs"
-      outMics = self._loadOutputSet(SetOfMicrographs, outputName+'.sqlite')
-      self._updateOutputSet(outputName, outMics, state=Set.STREAM_CLOSED)
+        outputName = "outputMicrographs"
+        outMics = self._loadOutputSet(SetOfMicrographs, outputName + '.sqlite')
+        self._updateOutputSet(outputName, outMics, state=Set.STREAM_CLOSED)
 
-      self._defineSourceRelation(self._getInputMicrographs(), self.outputMicrographs)
-      self.ended = True
-
+        self._defineSourceRelation(self._getInputMicrographs(), self.outputMicrographs)
+        self.ended = True
 
     # --------------------------- UTILS functions -----------------------------
     def _getStreamingBatchSize(self):
-      if self.lastRound:
-        return 1
-      else:
-        return self.streamingBatchSize.get()
+        if self.lastRound:
+            return 1
+        else:
+            return self.streamingBatchSize.get()
 
     def getGoodInputMics(self):
-      inpMics = self._getInputMicrographs()
-      goodMics = SetOfMicrographs()
-      goodMicFns = self._getGoodMicFns('')
-      for inpMic in inpMics:
-        if inpMic.getFileName() in goodMicFns:
-          goodMics.append(inpMic)
-      return goodMics
-      
-    def copyMicAssessOutput(self):
-      copyTree(self._getTmpPath('MicAssess'), self._getExtraPath('MicAssess'))
+        inpMics = self._getInputMicrographs()
+        goodMics = SetOfMicrographs()
+        goodMicFns = self._getGoodMicFns('')
+        for inpMic in inpMics:
+            if inpMic.getFileName() in goodMicFns:
+                goodMics.append(inpMic)
+        return goodMics
+
+    def copyMicAssessOutput(self, numPass):
+        copyTree(self._getTmpPath('output%s' % numPass), self._getExtraPath('MicAssess'))
 
     def initTotalStars(self):
-      totalInputStarFn, totalOutputStar = self.getInputFilename(''), self.getOutputFilename('')
-      sameTxt = 'data_\n\nloop_\n_rlnMicrographName \n'
-      f1, f2 = open(totalInputStarFn, 'w'), open(totalOutputStar, 'w')
-      f1.write("# Star file generated with Scipion\n\n")
-      f1.write(sameTxt), f2.write(sameTxt)
-      f1.close(), f2.close()
+        totalInputStarFn, totalOutputStar = self.getInputFilename(''), self.getOutputFilename('')
+        sameTxt = 'data_\n\nloop_\n_rlnMicrographName \n'
+        f1, f2 = open(totalInputStarFn, 'w'), open(totalOutputStar, 'w')
+        f1.write("# Star file generated with Scipion\n\n")
+        f1.write(sameTxt), f2.write(sameTxt)
+        f1.close(), f2.close()
 
     def appendTotalInputStar(self, numPass):
-      totalStarFn = self.getInputFilename('')
-      newMicNames = self._getInputMicFns(numPass)
-      if os.path.exists(totalStarFn):
-        with open(totalStarFn, 'a') as f:
-          for micName in newMicNames:
-            f.write(' '+micName+'\n')
+        totalStarFn = self.getInputFilename('')
+        newMicNames = self._getInputMicFns(numPass)
+        if os.path.exists(totalStarFn):
+            with open(totalStarFn, 'a') as f:
+                for micName in newMicNames:
+                    f.write(' ' + micName + '\n')
 
     def appendTotalOutputStar(self, numPass):
-      totalStarFn = self.getOutputFilename('')
-      newMicNames = self._getGoodMicFns(numPass)
-      if os.path.exists(totalStarFn):
-        with open(totalStarFn, 'a') as f:
-          for micName in newMicNames:
-            f.write(' '+micName+'\n')
+        totalStarFn = self.getOutputFilename('')
+        newMicNames = self._getGoodMicFns(numPass)
+        if os.path.exists(totalStarFn):
+            with open(totalStarFn, 'a') as f:
+                for micName in newMicNames:
+                    f.write(' ' + micName + '\n')
 
     def addDoneMicFns(self, newMics):
-      for newMic in newMics:
-        self.doneMicFns.add(newMic.getFileName())
+        for newMic in newMics:
+            self.doneMicFns.add(newMic.getFileName())
 
     def checkIfParentFinished(self):
         inpMics = self._getInputMicrographs()
         inpMics.loadAllProperties()
         if not inpMics.isStreamOpen():
-          return True
+            return True
         return False
 
     def _getFirstJoinStepName(self):
@@ -231,46 +235,47 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
         return None
 
     def _updateOutputSet(self, outputName, outputSet, state=Set.STREAM_OPEN):
-      outputSet.setStreamState(state)
-      if self.hasAttribute(outputName):
-        outputSet.write()  # Write to commit changes
-        outputAttr = getattr(self, outputName)
-        # Copy the properties to the object contained in the protcol
-        outputAttr.copy(outputSet, copyId=False)
-        # Persist changes
-        self._store(outputAttr)
-      else:
-        # Here the defineOutputs function will call the write() method
-        self._defineOutputs(**{outputName: outputSet})
-        self._store(outputSet)
+        outputSet.setStreamState(state)
+        if self.hasAttribute(outputName):
+            outputSet.write()  # Write to commit changes
+            outputAttr = getattr(self, outputName)
+            # Copy the properties to the object contained in the protocol
+            outputAttr.copy(outputSet, copyId=False)
+            # Persist changes
+            self._store(outputAttr)
+        else:
+            # Here the defineOutputs function will call the write() method
+            self._defineOutputs(**{outputName: outputSet})
+            self._store(outputSet)
 
-      # Close set databaset to avoid locking it
-      outputSet.close()
+        # Close set databaset to avoid locking it
+        outputSet.close()
 
     def _loadOutputSet(self, SetClass, baseName):
-      """
+        """
       Load the output set if it exists or create a new one.
       """
-      setFile = self._getPath(baseName)
-      if os.path.exists(setFile) and os.path.getsize(setFile) > 0:
-        outputSet = SetClass(filename=setFile)
-        outputSet.loadAllProperties()
-        outputSet.enableAppend()
-      else:
-        outputSet = SetClass(filename=setFile)
-        outputSet.setStreamState(outputSet.STREAM_OPEN)
-        outputSet.setObjLabel('good micrographs')
-        outputSet.copyInfo(self._getInputMicrographs())
+        setFile = self._getPath(baseName)
+        if os.path.exists(setFile) and os.path.getsize(setFile) > 0:
+            outputSet = SetClass(filename=setFile)
+            outputSet.loadAllProperties()
+            outputSet.enableAppend()
+        else:
+            outputSet = SetClass(filename=setFile)
+            outputSet.setStreamState(outputSet.STREAM_OPEN)
+            outputSet.setObjLabel('good micrographs')
+            outputSet.copyInfo(self._getInputMicrographs())
 
-      return outputSet
+        return outputSet
 
     def _getArgs(self, numPass):
         """ Return the list of args for the command. """
         args = ['-i %s ' % os.path.basename(self.getInputFilename(numPass)),
-                '-o %s ' % os.path.basename(self.getOutputFilename(numPass)),
-                '-m %s' % Plugin.getVar(CRYOASSESS_MODEL_MIC),
+                '-o output%s ' % numPass,
+                '-m %s' % Plugin.getVar(CRYOASSESS_MODELS),
                 '-b %d' % self.batchSize.get(),
-                '-t %0.2f' % self.threshold.get(),
+                '--t1 %0.2f' % self.threshold.get(),
+                '--t2 %0.2f' % self.threshold2.get(),
                 '--threads %d' % self.numberOfThreads.get(),
                 '--gpus %s' % self.gpuList.get().strip().replace(" ", ",")]
 
@@ -286,9 +291,9 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
         inputMics = self._getInputMicrographs()
         newMics = []
         for mic in inputMics:
-          if mic.getFileName() not in self.doneMicFns:
-            newMic = mic.clone()
-            newMics.append(newMic)
+            if mic.getFileName() not in self.doneMicFns:
+                newMic = mic.clone()
+                newMics.append(newMic)
         return newMics
 
     def getInputFilename(self, numPass):
@@ -299,10 +304,9 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
 
     def getOutputFilename(self, numPass):
         if numPass == '':
-            return self._getExtraPath('good_micrographs{}.star'.format(numPass))
+            return self._getExtraPath('input_micrographs{}_good.star'.format(numPass))
         else:
-          return self._getTmpPath('good_micrographs{}.star'.format(numPass))
-
+            return self._getTmpPath('input_micrographs{}_good.star'.format(numPass))
 
     def _getCameraType(self):
         """ Get camera type based on input mic size.
@@ -317,29 +321,34 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
         else:
             return None
 
-    def _getRelPath(self, fn):
-        """ Return relative path from cwd=extra. """
-        return os.path.relpath(fn, self._getExtraPath())
-
     def _getInputMicFns(self, numPass):
-      """ Parse input star file and get a list of mics. """
-      table = Table(fileName=self.getInputFilename(numPass), tableName='')
-      micNames = table.getColumnValues('rlnMicrographName')
-      return micNames
+        """ Parse input star file and get a list of mics. """
+        table = Table(fileName=self.getInputFilename(numPass), tableName='')
+        micNames = table.getColumnValues('rlnMicrographName')
+        return micNames
 
     def _getGoodMicFns(self, numPass):
         """ Parse output star file and get a list of good mics. """
-        table = Table(fileName=self.getOutputFilename(numPass), tableName='')
-        micNames = table.getColumnValues('rlnMicrographName')
+        micNames = []
+        if os.path.exists(self.getOutputFilename(numPass)):
+            table = Table(fileName=self.getOutputFilename(numPass), tableName='')
+            micNames = table.getColumnValues('rlnMicrographName')
         return micNames
 
     def _addGoodMic(self, item, row):
         """ Callback function to append only good items. """
-        if self._getRelPath(item.getFileName()) not in self.curGoodList:
+        if os.path.abspath(item.getFileName()) not in self.curGoodList:
             setattr(item, "_appendItem", False)
 
-
     # --------------------------- INFO functions ------------------------------
+    def _validate(self):
+        errors = []
+
+        if not os.path.isdir(Plugin.getVar(CRYOASSESS_MODELS)):
+            errors.append("Directory with models not found: %s" % CRYOASSESS_MODELS)
+
+        return errors
+
     def _summary(self):
         summary = []
         if not hasattr(self, 'outputMicrographs'):

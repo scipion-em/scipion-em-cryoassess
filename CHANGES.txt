@@ -1,3 +1,4 @@
+3.1 - micassess updated to 1.0.0
 3.0.4 - streaming support for micassess
 3.0.3 - bugfixes
 3.0.2 - add 0.2.0 version support
