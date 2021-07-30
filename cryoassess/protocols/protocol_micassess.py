@@ -329,8 +329,10 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
 
     def _getGoodMicFns(self, numPass):
         """ Parse output star file and get a list of good mics. """
-        table = Table(fileName=self.getOutputFilename(numPass), tableName='')
-        micNames = table.getColumnValues('rlnMicrographName')
+        micNames = []
+        if os.path.exists(self.getOutputFilename(numPass)):
+            table = Table(fileName=self.getOutputFilename(numPass), tableName='')
+            micNames = table.getColumnValues('rlnMicrographName')
         return micNames
 
     def _addGoodMic(self, item, row):
