@@ -2,7 +2,7 @@
 Cryoassess plugin
 =================
 
-This plugin provide a wrapper around `Cryoassess <https://github.com/cianfrocco-lab/Automatic-cryoEM-preprocessing>`_ software tools for automatic micrograph and 2D classes assessment.
+This plugin provides a wrapper for `Cryoassess <https://github.com/cianfrocco-lab/Automatic-cryoEM-preprocessing>`_ software tools for automatic micrograph and 2D classes assessment.
 
 .. image:: https://img.shields.io/pypi/v/scipion-em-cryoassess.svg
         :target: https://pypi.python.org/pypi/scipion-em-cryoassess
@@ -23,15 +23,6 @@ This plugin provide a wrapper around `Cryoassess <https://github.com/cianfrocco-
 .. image:: https://img.shields.io/pypi/dm/scipion-em-cryoassess
         :target: https://pypi.python.org/pypi/scipion-em-cryoassess
         :alt: Downloads
-
-
-+--------------+----------------+
-| prod: |prod| | devel: |devel| |
-+--------------+----------------+
-
-.. |prod| image:: http://scipion-test.cnb.csic.es:9980/badges/cryoassess_prod.svg
-.. |devel| image:: http://scipion-test.cnb.csic.es:9980/badges/cryoassess_devel.svg
-
 
 Installation
 -------------
@@ -56,7 +47,7 @@ b) Developer's version
 
     .. code-block::
 
-       scipion installp -p path_to_scipion-em-cryoassess --devel
+       scipion installp -p /path/to/scipion-em-cryoassess --devel
 
 Cryoassess software will be installed automatically with the plugin but you can also use an existing installation by providing *CRYOASSESS_ENV_ACTIVATION* (see below).
 You also have to download training models separately (see below).
