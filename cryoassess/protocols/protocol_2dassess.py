@@ -26,13 +26,19 @@
 
 from glob import glob
 import re
+from enum import Enum
 
-from pyworkflow.constants import BETA
+from pyworkflow.constants import PROD
 import pyworkflow.protocol.params as params
 from pwem.protocols import ProtProcessParticles
+from pwem.objects import SetOfAverages
 
 from .. import Plugin
 from ..constants import CRYOASSESS_MODELS
+
+
+class outputs(Enum):
+    outputAverages = SetOfAverages
 
 
 class CryoassessProt2D(ProtProcessParticles):
@@ -42,7 +48,8 @@ class CryoassessProt2D(ProtProcessParticles):
     Find more information at https://github.com/cianfrocco-lab/Automatic-cryoEM-preprocessing
     """
     _label = 'assess 2D classes'
-    _devStatus = BETA
+    _devStatus = PROD
+    _possibleOutputs = outputs
 
     def __init__(self, **kwargs):
         ProtProcessParticles.__init__(self, **kwargs)
@@ -99,7 +106,7 @@ class CryoassessProt2D(ProtProcessParticles):
         self._getGoodAvgs()
         if len(self.goodList):
             outAvgs.copyItems(inputAvg, updateItemCallback=self._addGoodAvg)
-            self._defineOutputs(outputAverages=outAvgs)
+            self._defineOutputs(**{outputs.outputAverages.name: outAvgs})
             self._defineSourceRelation(self.inputAverages, outAvgs)
 
     # --------------------------- INFO functions ------------------------------

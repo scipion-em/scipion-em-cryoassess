@@ -26,9 +26,10 @@
 
 import os
 import math
+from enum import Enum
 from emtable import Table
 
-from pyworkflow.constants import BETA
+from pyworkflow.constants import PROD
 import pyworkflow.protocol.constants as pwcts
 from pyworkflow.protocol import params, STATUS_NEW
 from pyworkflow.utils.path import copyTree
@@ -39,6 +40,10 @@ from .. import Plugin
 from ..constants import CRYOASSESS_MODELS
 
 
+class outputs(Enum):
+    outputMicrographs = SetOfMicrographs
+
+
 class CryoassessProtMics(ProtPreprocessMicrographs):
     """
     Protocol to assess micrographs from K2 or K3 cameras.
@@ -46,7 +51,8 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
     Find more information at https://github.com/cianfrocco-lab/Automatic-cryoEM-preprocessing
     """
     _label = 'assess micrographs'
-    _devStatus = BETA
+    _devStatus = PROD
+    _possibleOutputs = outputs
 
     def __init__(self, **kwargs):
         ProtPreprocessMicrographs.__init__(self, **kwargs)
@@ -161,7 +167,7 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
             self._updateOutputSet(outputName, outMics)
 
     def closeSetStep(self):
-        outputName = "outputMicrographs"
+        outputName = outputs.outputMicrographs.name
         outMics = self._loadOutputSet(SetOfMicrographs, outputName + '.sqlite')
         self._updateOutputSet(outputName, outMics, state=Set.STREAM_CLOSED)
 
