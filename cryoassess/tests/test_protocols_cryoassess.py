@@ -64,7 +64,6 @@ class TestCryoassess(BaseTest):
         micSet = getattr(protAssessMics, 'outputMicrographs', None)
         self.assertEqual(len(micSet), self._getNumberOfGood(protAssessMics))
 
-
     def test2DAssess(self):
         print(magentaStr("\n==> Testing cryoassess - 2d assess:"))
         protAssess2D = self.newProtocol(
