@@ -31,19 +31,22 @@ from enum import Enum
 from pyworkflow.constants import PROD
 import pyworkflow.protocol.params as params
 from pwem.protocols import ProtProcessParticles
-from pwem.objects import SetOfAverages
+from pwem.objects import SetOfAverages, SetOfClasses2D
 
 from .. import Plugin
 from ..constants import CRYOASSESS_MODELS
 
+REF_CLASSES = 0
+REF_AVERAGES = 1
 
 class outputs(Enum):
     outputAverages = SetOfAverages
+    outputClasses = SetOfClasses2D
 
 
 class CryoassessProt2D(ProtProcessParticles):
     """
-    Protocol to assess 2D class averages.
+    Protocol to assess 2D classes and 2D averages
 
     Find more information at https://github.com/cianfrocco-lab/Automatic-cryoEM-preprocessing
     """
@@ -66,9 +69,9 @@ class CryoassessProt2D(ProtProcessParticles):
     # --------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
         form.addSection(label='Input')
-        form.addParam('inputAverages', params.PointerParam,
-                      pointerClass='SetOfAverages',
-                      label="Input averages", important=True)
+        form.addParam('inputRefs', params.PointerParam,
+                      pointerClass='SetOfClasses2D, SetOfAverages',
+                      label="Input references", important=True)
         form.addParam('batchSize', params.IntParam, default=32,
                       expertLevel=params.LEVEL_ADVANCED,
                       label='Batch size',
@@ -87,7 +90,12 @@ class CryoassessProt2D(ProtProcessParticles):
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self):
         """ Create a mrcs stack as expected by cryoassess."""
-        imgSet = self.inputAverages.get()
+        imgSet = self.inputRefs.get()
+        if isinstance(imgSet, SetOfClasses2D):
+            self.useAsRef = REF_CLASSES
+        else:
+            self.useAsRef = REF_AVERAGES
+
         imgSet.writeStack(self._getFileName('input_cls'))
 
     def run2DAssessStep(self):
@@ -97,25 +105,35 @@ class CryoassessProt2D(ProtProcessParticles):
         self.runJob(program, params, env=Plugin.getEnviron())
 
     def createOutputStep(self):
-        inputAvg = self.inputAverages.get()
-        outAvgs = self._createSetOfAverages()
-        outAvgs.copyInfo(inputAvg)
-        outAvgs.setObjLabel('good class averages')
+        inputRefs = self.inputRefs.get()
+        if self.useAsRef == REF_CLASSES:
+            outRefs = SetOfClasses2D.create(self._getPath())
+        else:
+            outRefs = self._createSetOfAverages()
+
+        outRefs.copyInfo(inputRefs)
 
         # Search through output files and find good classes
         self._getGoodAvgs()
         if len(self.goodList):
-            outAvgs.copyItems(inputAvg, updateItemCallback=self._addGoodAvg)
-            self._defineOutputs(**{outputs.outputAverages.name: outAvgs})
-            self._defineSourceRelation(self.inputAverages, outAvgs)
+            if self.useAsRef == REF_CLASSES:
+                outRefs.setObjLabel('good 2D classes')
+                outRefs.appendFromClasses(inputRefs, filterClassFunc=self._appendGoodClass)
+                self._defineOutputs(**{outputs.outputClasses.name: outRefs})
+            else:
+                outRefs.setObjLabel('good class averages')
+                outRefs.copyItems(inputRefs, updateItemCallback=self._addGoodAvg)
+                self._defineOutputs(**{outputs.outputAverages.name: outRefs})
+
+            self._defineSourceRelation(self.inputRefs, outRefs)
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
         summary = []
-        if not hasattr(self, 'outputAverages'):
-            summary.append("Output not ready or no good averages found")
+        if not hasattr(self, 'outputAverages') or not hasattr(self, 'outputClasses'):
+            summary.append("Output not ready or no good references found")
         else:
-            summary.append("Sorted class averages into good and bad ones.")
+            summary.append("Sorted class references into good and bad ones.")
 
         return summary
 
@@ -140,3 +158,7 @@ class CryoassessProt2D(ProtProcessParticles):
         """ Callback function to append only good items. """
         if item.getObjId() not in self.goodList:
             setattr(item, "_appendItem", False)
+
+    def _appendGoodClass(self, item):
+        """ Callback function to append only good classes. """
+        return False if not item.getObjId() in self.goodList else True
