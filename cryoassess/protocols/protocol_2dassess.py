@@ -26,7 +26,6 @@
 
 from glob import glob
 import re
-from enum import Enum
 
 from pyworkflow.constants import PROD
 import pyworkflow.protocol.params as params
@@ -34,17 +33,7 @@ from pwem.protocols import ProtProcessParticles
 from pwem.objects import SetOfAverages, SetOfClasses2D
 
 from .. import Plugin
-from ..constants import CRYOASSESS_MODELS
-
-REF_CLASSES = 0
-REF_AVERAGES = 1
-DISCARDED = '_discarded'
-
-class outputs(Enum):
-    outputAverages = SetOfAverages
-    outputAverages_discarded = SetOfAverages
-    outputClasses = SetOfClasses2D
-    outputClasses_discarded = SetOfClasses2D
+from ..constants import *
 
 
 class CryoassessProt2D(ProtProcessParticles):
@@ -55,7 +44,12 @@ class CryoassessProt2D(ProtProcessParticles):
     """
     _label = 'assess 2D classes'
     _devStatus = PROD
-    _possibleOutputs = outputs
+    _possibleOutputs = {
+        'outputAverages': SetOfAverages,
+        'outputAverages_discarded': SetOfAverages,
+        'outputClasses': SetOfClasses2D,
+        'outputClasses_discarded': SetOfClasses2D
+    }
     outputDict = {}
 
     def __init__(self, **kwargs):
@@ -65,8 +59,8 @@ class CryoassessProt2D(ProtProcessParticles):
         """ Centralize how files are called. """
         myDict = {'input_cls': self._getExtraPath('input_classes.mrcs')}
         self._pathTemplate = self._getExtraPath('2DAssess/*/particle_*.jpg')
-        self._goodClassesRegex = re.compile('Good/particle_(\d*)\.jpg')
-        self._regex = re.compile('particle_(\d*)\.jpg')
+        self._goodClassesRegex = re.compile(r'Good/particle_(\d*)\.jpg')
+        self._regex = re.compile(r'particle_(\d*)\.jpg')
         self.goodList = []
         self.badList = []
 
@@ -95,25 +89,12 @@ class CryoassessProt2D(ProtProcessParticles):
 
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self):
-        """ Create a mrcs stack as expected by cryoassess and store a lookup table
-         to correctly associate the IDs."""
+        """ Create a mrcs stack as expected by cryoassess and
+        store a list of objIds."""
         imgSet = self.inputRefs.get()
-        if isinstance(imgSet, SetOfClasses2D):
-            self.useAsRef = REF_CLASSES
-        else:
-            self.useAsRef = REF_AVERAGES
-
         imgSet.writeStack(self._getFileName('input_cls'))
-        self.createLookUpTable()
 
-    def createLookUpTable(self):
-        """ Create a lookup table to correctly associate the IDs."""
-        classesIDs = self.inputRefs.get().getIdSet()
-        self.lookUpTable = {}
-        n = 1
-        for classID in classesIDs:
-            self.lookUpTable[classID] = n
-            n += 1
+        self.clsIds = list(self.inputRefs.get().getIdSet())
 
     def run2DAssessStep(self):
         """ Call cryoassess with the appropriate parameters. """
@@ -123,10 +104,11 @@ class CryoassessProt2D(ProtProcessParticles):
 
     def createOutputStep(self):
         inputRefs = self.inputRefs.get()
-        if self.useAsRef == REF_CLASSES:
+        if self._getRefsType() == REF_CLASSES:
             outRefs = SetOfClasses2D.create(self._getPath())
-            outBadRefs = SetOfClasses2D.create(self._getPath(), suffix=DISCARDED)
-        elif self.useAsRef == REF_AVERAGES:
+            outBadRefs = SetOfClasses2D.create(self._getPath(),
+                                               suffix=DISCARDED)
+        else:
             outRefs = self._createSetOfAverages()
             outBadRefs = self._createSetOfAverages(suffix=DISCARDED)
 
@@ -136,35 +118,39 @@ class CryoassessProt2D(ProtProcessParticles):
         # Search through output files and find good and bad classes
         self._getReferences()
         if len(self.goodList):
-            if self.useAsRef == REF_CLASSES:
+            if self._getRefsType() == REF_CLASSES:
                 outRefs.setObjLabel('good 2D classes')
-                outRefs.appendFromClasses(inputRefs, filterClassFunc=self._addGoodClass)
-                self.outputDict[outputs.outputClasses.name] = outRefs
+                outRefs.appendFromClasses(inputRefs,
+                                          filterClassFunc=self._addGoodClass)
+                self.outputDict['outputClasses'] = outRefs
             else:
                 outRefs.setObjLabel('good class averages')
-                outRefs.copyItems(inputRefs, updateItemCallback=self._addGoodAvg)
-                self.outputDict[outputs.outputAverages.name] = outRefs
+                outRefs.copyItems(inputRefs,
+                                  updateItemCallback=self._addGoodAvg)
+                self.outputDict['outputAverages'] = outRefs
 
         if len(self.badList):
-            if self.useAsRef == REF_CLASSES:
+            if self._getRefsType() == REF_CLASSES:
                 outBadRefs.setObjLabel('bad 2D classes')
-                outBadRefs.appendFromClasses(inputRefs, filterClassFunc=self._addBadClass)
-                self.outputDict[outputs.outputClasses_discarded.name + DISCARDED] = outBadRefs
+                outBadRefs.appendFromClasses(inputRefs,
+                                             filterClassFunc=self._addBadClass)
+                self.outputDict['outputClasses_discarded'] = outBadRefs
             else:
                 outBadRefs.setObjLabel('bad class averages')
-                outBadRefs.copyItems(inputRefs, updateItemCallback=self._addBadAvg)
-                self.outputDict[outputs.outputAverages_discarded.name + DISCARDED] = outBadRefs
+                outBadRefs.copyItems(inputRefs,
+                                     updateItemCallback=self._addBadAvg)
+                self.outputDict['outputAverages_discarded'] = outBadRefs
 
         self._defineOutputs(**self.outputDict)
-        if self.useAsRef == SetOfClasses2D:
+        if self._getRefsType() == REF_CLASSES:
             self._defineSourceRelation(self.inputRefs, outRefs)
             self._defineSourceRelation(self.inputRefs, outBadRefs)
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
         summary = []
-        if not hasattr(self, 'outputAverages') or not hasattr(self, 'outputClasses'):
-            summary.append("Output not ready or no good references found")
+        if not self.isFinished():
+            summary.append("Output not ready.")
         else:
             summary.append("Sorted class references into good and bad ones.")
 
@@ -192,18 +178,22 @@ class CryoassessProt2D(ProtProcessParticles):
 
     def _addGoodAvg(self, item, row):
         """ Callback function to append only good items. """
-        if self.lookUpTable[item.getObjId()] not in self.goodList:
+        if self.clsIds.index(item.getObjId()) + 1 not in self.goodList:
             setattr(item, "_appendItem", False)
 
     def _addBadAvg(self, item, row):
         """ Callback function to append only bad items. """
-        if self.lookUpTable[item.getObjId()] not in self.badList:
+        if self.clsIds.index(item.getObjId()) + 1 not in self.badList:
             setattr(item, "_appendItem", False)
 
     def _addGoodClass(self, item):
         """ Callback function to append only good classes. """
-        return False if self.lookUpTable[item.getObjId()] not in self.goodList else True
+        return False if self.clsIds.index(item.getObjId()) + 1 not in self.goodList else True
 
     def _addBadClass(self, item):
         """ Callback function to append only bad classes. """
-        return False if self.lookUpTable[item.getObjId()] not in self.badList else True
+        return False if self.clsIds.index(item.getObjId()) + 1 not in self.badList else True
+
+    def _getRefsType(self):
+        imgSet = self.inputRefs.get()
+        return REF_CLASSES if isinstance(imgSet, SetOfClasses2D) else REF_AVERAGES
