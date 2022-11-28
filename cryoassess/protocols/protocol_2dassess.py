@@ -143,8 +143,10 @@ class CryoassessProt2D(ProtProcessParticles):
 
         self._defineOutputs(**self.outputDict)
         if self._getRefsType() == REF_CLASSES:
-            self._defineSourceRelation(self.inputRefs, outRefs)
-            self._defineSourceRelation(self.inputRefs, outBadRefs)
+            if len(self.goodList):
+                self._defineSourceRelation(self.inputRefs, outRefs)
+            if len(self.badList):
+                self._defineSourceRelation(self.inputRefs, outBadRefs)
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
