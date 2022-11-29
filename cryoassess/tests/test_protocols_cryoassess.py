@@ -68,7 +68,7 @@ class TestCryoassess(BaseTest):
         print(magentaStr("\n==> Testing cryoassess - 2d assess:"))
         protAssess2D = self.newProtocol(
             CryoassessProt2D,
-            inputAverages=self.protImportAvgs.outputAverages)
+            inputRefs=self.protImportAvgs.outputAverages)
         self.launchProtocol(protAssess2D)
         avgSet = getattr(protAssess2D, 'outputAverages', None)
         self.assertIsNotNone(avgSet)
