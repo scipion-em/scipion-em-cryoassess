@@ -39,7 +39,7 @@ _logo = "cryoassess_logo.png"
 
 class Plugin(pwem.Plugin):
     _pathVars = [CRYOASSESS_MODELS]
-    _url = "https://github.com/scipion-em/scipion-em-cryoassess"
+    _url = "https://github.com/cianfrocco-lab/Automatic-cryoEM-preprocessing"
     _supportedVersions = VERSIONS
 
     @classmethod
