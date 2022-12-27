@@ -32,13 +32,14 @@ from pyworkflow import Config
 from .constants import *
 
 
-__version__ = '3.1.1'
+__version__ = '3.2'
 _references = ['Li2020']
 _logo = "cryoassess_logo.png"
 
 
 class Plugin(pwem.Plugin):
-    _url = "https://github.com/scipion-em/scipion-em-cryoassess"
+    _pathVars = [CRYOASSESS_MODELS]
+    _url = "https://github.com/cianfrocco-lab/Automatic-cryoEM-preprocessing"
     _supportedVersions = VERSIONS
 
     @classmethod

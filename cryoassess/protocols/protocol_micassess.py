@@ -47,8 +47,6 @@ class outputs(Enum):
 class CryoassessProtMics(ProtPreprocessMicrographs):
     """
     Protocol to assess micrographs from K2 or K3 cameras.
-
-    Find more information at https://github.com/cianfrocco-lab/Automatic-cryoEM-preprocessing
     """
     _label = 'assess micrographs'
     _devStatus = PROD
