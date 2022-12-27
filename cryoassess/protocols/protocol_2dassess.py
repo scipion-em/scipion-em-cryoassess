@@ -39,8 +39,6 @@ from ..constants import *
 class CryoassessProt2D(ProtProcessParticles):
     """
     Protocol to assess 2D classes and 2D averages
-
-    Find more information at https://github.com/cianfrocco-lab/Automatic-cryoEM-preprocessing
     """
     _label = 'assess 2D classes'
     _devStatus = PROD
