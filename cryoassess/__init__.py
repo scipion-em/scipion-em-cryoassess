@@ -32,7 +32,7 @@ from pyworkflow import Config
 from .constants import *
 
 
-__version__ = '3.2'
+__version__ = '3.3'
 _references = ['Li2020']
 _logo = "cryoassess_logo.png"
 
@@ -54,6 +54,12 @@ class Plugin(pwem.Plugin):
         scipionHome = Config.SCIPION_HOME + os.path.sep
 
         return activation.replace(scipionHome, "", 1)
+
+    @classmethod
+    def getActiveVersion(cls, *args):
+        """ Return the env name that is currently active. """
+        envVar = cls.getVar(CRYOASSESS_ENV_ACTIVATION)
+        return envVar.split()[-1].split("-")[-1]
 
     @classmethod
     def getEnviron(cls):

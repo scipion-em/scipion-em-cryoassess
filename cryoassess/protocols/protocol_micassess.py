@@ -281,7 +281,7 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
                 '--t1 %0.2f' % self.threshold.get(),
                 '--t2 %0.2f' % self.threshold2.get(),
                 '--threads %d' % self.numberOfThreads.get(),
-                '--gpus %s' % self.gpuList.get().strip().replace(" ", ",")]
+                '--gpus %(GPU)s']
 
         if self._getCameraType() is not None:
             args.append('-d %s' % self._getCameraType())
