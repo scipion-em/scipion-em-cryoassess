@@ -33,7 +33,7 @@ from pwem.protocols import ProtProcessParticles
 from pwem.objects import SetOfAverages, SetOfClasses2D
 
 from .. import Plugin
-from ..constants import *
+from ..constants import REF_CLASSES, DISCARDED, CRYOASSESS_MODELS, REF_AVERAGES
 
 
 class CryoassessProt2D(ProtProcessParticles):

@@ -34,7 +34,7 @@ import pyworkflow.protocol.constants as pwcts
 from pyworkflow.protocol import params, STATUS_NEW, Protocol
 from pyworkflow.utils.path import copyTree
 from pwem.protocols import ProtPreprocessMicrographs
-from pwem.objects import SetOfMicrographs, Set
+from pwem.objects import SetOfMicrographs
 
 from .. import Plugin
 from ..constants import CRYOASSESS_MODELS
