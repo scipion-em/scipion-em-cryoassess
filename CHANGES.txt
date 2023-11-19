@@ -1,4 +1,5 @@
-3.3 - fix GPU assignment, add binary version detection
+3.4: add discarded micrographs and use a generic updateOutputSet (by @danielmarchan3)
+3.3: fix GPU assignment, add binary version detection
 3.2:
     - protocol 2D assess now accepts as input 2D classes and outputs 2D classes
     - check if models exist
