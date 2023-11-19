@@ -31,10 +31,10 @@ from emtable import Table
 
 from pyworkflow.constants import PROD
 import pyworkflow.protocol.constants as pwcts
-from pyworkflow.protocol import params, STATUS_NEW
+from pyworkflow.protocol import params, STATUS_NEW, Protocol
 from pyworkflow.utils.path import copyTree
 from pwem.protocols import ProtPreprocessMicrographs
-from pwem.objects import SetOfMicrographs, Set
+from pwem.objects import SetOfMicrographs
 
 from .. import Plugin
 from ..constants import CRYOASSESS_MODELS
@@ -44,7 +44,7 @@ class outputs(Enum):
     outputMicrographs = SetOfMicrographs
 
 
-class CryoassessProtMics(ProtPreprocessMicrographs):
+class CryoassessProtMics(ProtPreprocessMicrographs, Protocol):
     """
     Protocol to assess micrographs from K2 or K3 cameras.
     """
@@ -164,12 +164,18 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
             outMics.copyItems(newMics, updateItemCallback=self._addGoodMic)
             self._updateOutputSet(outputName, outMics)
 
-    def closeSetStep(self):
-        outputName = outputs.outputMicrographs.name
-        outMics = self._loadOutputSet(SetOfMicrographs, outputName + '.sqlite')
-        self._updateOutputSet(outputName, outMics, state=Set.STREAM_CLOSED)
+        if len(newMics) > len(goodMicNames):
+            outputDiscardedName = "discardedMicrographs"
+            outDiscMics = self._loadOutputSet(SetOfMicrographs, outputDiscardedName + '.sqlite')
+            outDiscMics.copyItems(newMics, updateItemCallback=self._addBadMic)
+            self._updateOutputSet(outputDiscardedName, outDiscMics)
 
-        self._defineSourceRelation(self._getInputMicrographs(), self.outputMicrographs)
+    def closeSetStep(self):
+        self._closeOutputSet()
+        if hasattr(self, 'outputMicrographs'):
+            self._defineSourceRelation(self._getInputMicrographs(), self.outputMicrographs)
+        if hasattr(self, 'discardedMicrographs'):
+            self._defineSourceRelation(self._getInputMicrographs(), self.discardedMicrographs)
         self.ended = True
 
     # --------------------------- UTILS functions -----------------------------
@@ -237,23 +243,6 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
             if s.funcName == self._getFirstJoinStepName():
                 return s
         return None
-
-    def _updateOutputSet(self, outputName, outputSet, state=Set.STREAM_OPEN):
-        outputSet.setStreamState(state)
-        if self.hasAttribute(outputName):
-            outputSet.write()  # Write to commit changes
-            outputAttr = getattr(self, outputName)
-            # Copy the properties to the object contained in the protocol
-            outputAttr.copy(outputSet, copyId=False)
-            # Persist changes
-            self._store(outputAttr)
-        else:
-            # Here the defineOutputs function will call the write() method
-            self._defineOutputs(**{outputName: outputSet})
-            self._store(outputSet)
-
-        # Close set databaset to avoid locking it
-        outputSet.close()
 
     def _loadOutputSet(self, SetClass, baseName):
         """
@@ -342,6 +331,11 @@ class CryoassessProtMics(ProtPreprocessMicrographs):
     def _addGoodMic(self, item, row):
         """ Callback function to append only good items. """
         if os.path.abspath(item.getFileName()) not in self.curGoodList:
+            setattr(item, "_appendItem", False)
+
+    def _addBadMic(self, item, row):
+        """ Callback function to append only bad items. """
+        if os.path.abspath(item.getFileName()) in self.curGoodList:
             setattr(item, "_appendItem", False)
 
     # --------------------------- INFO functions ------------------------------

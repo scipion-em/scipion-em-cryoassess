@@ -35,7 +35,7 @@ pages = "858 - 869.e3",
 year = "2020",
 issn = "0969-2126",
 doi = "https://dx.doi.org/10.1016/j.str.2020.03.008",
-url = "http://www.sciencedirect.com/science/article/pii/S0969212620300800",
+url = "https://www.sciencedirect.com/science/article/pii/S0969212620300800",
 author = "Yilai Li and Jennifer N. Cash and John J.G. Tesmer and Michael A. Cianfrocco",
 }
 
