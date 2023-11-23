@@ -29,6 +29,8 @@ import re
 
 from pyworkflow.constants import PROD
 import pyworkflow.protocol.params as params
+from pyworkflow.protocol import ProtStreamingBase
+from pyworkflow.protocol.constants import STEPS_PARALLEL
 from pwem.protocols import ProtProcessParticles
 from pwem.objects import SetOfAverages, SetOfClasses2D
 
@@ -36,7 +38,7 @@ from .. import Plugin
 from ..constants import *
 
 
-class CryoassessProt2D(ProtProcessParticles):
+class CryoassessProt2D(ProtProcessParticles, ProtStreamingBase):
     """
     Protocol to assess 2D classes and 2D averages
     """
@@ -52,6 +54,7 @@ class CryoassessProt2D(ProtProcessParticles):
 
     def __init__(self, **kwargs):
         ProtProcessParticles.__init__(self, **kwargs)
+        self.stepsExecutionMode = STEPS_PARALLEL
 
     def _createFilenameTemplates(self):
         """ Centralize how files are called. """
@@ -78,12 +81,19 @@ class CryoassessProt2D(ProtProcessParticles):
                            'prediction. If memory error/warning appears, '
                            'you should lower this number.')
 
+        form.addParallelSection(threads=3, mpi=1)
+
     # --------------------------- INSERT steps functions ----------------------
-    def _insertAllSteps(self):
+    def stepsGeneratorStep(self) -> None:
+        """
+        This step should be implemented by any streaming protocol.
+        It should check its input and when ready conditions are met
+        call the self._insertFunctionStep method.
+        """
         self._createFilenameTemplates()
-        self._insertFunctionStep('convertInputStep')
-        self._insertFunctionStep('run2DAssessStep')
-        self._insertFunctionStep('createOutputStep')
+        convertStep = self._insertFunctionStep('convertInputStep', prerequisites=[])
+        run2DAssesStep = self._insertFunctionStep('run2DAssessStep', prerequisites=convertStep)
+        self._insertFunctionStep('createOutputStep', prerequisites=run2DAssesStep)
 
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self):
