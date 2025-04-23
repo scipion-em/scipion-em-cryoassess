@@ -26,6 +26,7 @@
 
 from glob import glob
 import re
+import os
 
 from pyworkflow.constants import PROD
 import pyworkflow.protocol.params as params
@@ -98,7 +99,13 @@ class CryoassessProt2D(ProtProcessParticles):
         """ Call cryoassess with the appropriate parameters. """
         params = ' '.join(self._getArgs())
         program = Plugin.getProgram('2dassess')
-        self.runJob(program, params, env=Plugin.getEnviron())
+        env_esrf = Plugin.getEnviron()
+        self.info('Loading CUDA toolkit 11.2')
+        # Set CUDA paths for 11.2.2 (modify these paths according to your system)
+        env_esrf["CUDA_HOME"] = "/cvmfs/hpc.esrf.fr/software/packages/ubuntu20.04/x86_64/cuda/11.2.2/"
+        env_esrf["PATH"] = "/cvmfs/hpc.esrf.fr/software/packages/ubuntu20.04/x86_64/cuda/11.2.2/bin:" + os.environ["PATH"]
+        env_esrf["LD_LIBRARY_PATH"] = "/cvmfs/hpc.esrf.fr/software/packages/ubuntu20.04/x86_64/cuda/11.2.2/lib64:" + os.environ.get("LD_LIBRARY_PATH", "")
+        self.runJob(program, params, env=env_esrf)
 
     def createOutputStep(self):
         inputRefs = self.inputRefs.get()
