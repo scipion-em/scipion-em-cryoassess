@@ -51,10 +51,10 @@ class CryoassessProtMics(ProtPreprocessMicrographs, Protocol):
     _label = 'assess micrographs'
     _devStatus = PROD
     _possibleOutputs = outputs
+    stepsExecutionMode = pwcts.STEPS_PARALLEL
 
     def __init__(self, **kwargs):
         ProtPreprocessMicrographs.__init__(self, **kwargs)
-        self.stepsExecutionMode = pwcts.STEPS_PARALLEL
 
     # --------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
