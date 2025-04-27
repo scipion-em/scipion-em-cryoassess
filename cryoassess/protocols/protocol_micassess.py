@@ -95,8 +95,9 @@ class CryoassessProtMics(ProtPreprocessMicrographs, Protocol):
 
     # --------------------------- INSERT steps functions ----------------------
     def _insertAllSteps(self):
-        self._insertFunctionStep("initializeStep")
-        self.closeSet = self._insertFunctionStep('closeSetStep', wait=True)
+        self._insertFunctionStep("initializeStep", needsGPU=False)
+        self.closeSet = self._insertFunctionStep('closeSetStep', wait=True,
+                                                 needsGPU=False)
 
     def _stepsCheck(self):
         if not self.ended:
@@ -118,9 +119,18 @@ class CryoassessProtMics(ProtPreprocessMicrographs, Protocol):
 
     def _insertNewMicsSteps(self, newMics, numPass):
         newSteps = []
-        newSteps.append(self._insertFunctionStep('convertInputStep', newMics, numPass, prerequisites=[]))
-        newSteps.append(self._insertFunctionStep('runMicAssessStep', numPass, prerequisites=newSteps[-1:]))
-        newSteps.append(self._insertFunctionStep('createOutputStep', newMics, numPass, prerequisites=newSteps[-1:]))
+        newSteps.append(self._insertFunctionStep('convertInputStep',
+                                                 newMics, numPass,
+                                                 prerequisites=[],
+                                                 needsGPU=False))
+        newSteps.append(self._insertFunctionStep('runMicAssessStep',
+                                                 numPass,
+                                                 prerequisites=newSteps[-1:],
+                                                 needsGPU=True))
+        newSteps.append(self._insertFunctionStep('createOutputStep',
+                                                 newMics, numPass,
+                                                 prerequisites=newSteps[-1:],
+                                                 needsGPU=False))
         return newSteps
 
     # --------------------------- STEPS functions -----------------------------
