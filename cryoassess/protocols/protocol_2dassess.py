@@ -40,6 +40,84 @@ class CryoassessProt2D(ProtProcessParticles):
     """
     Protocol to assess 2D classes and 2D averages
     """
+
+    """
+            The CryoassessProt2D protocol evaluates the quality of 2D class
+            averages or 2D classes using a deep-learning-based Cryoassess
+            model. Its main purpose is to automatically separate high-quality
+            and low-quality class references, helping users identify reliable
+            structural information for downstream cryo-EM processing and
+            interpretation.
+
+            Inputs and General Workflow
+
+            The protocol accepts either a set of 2D classes or a set of 2D
+            averages as input references. During execution, the input images
+            are converted into an MRCS stack format compatible with the
+            Cryoassess prediction model. Each reference is associated with
+            its corresponding object identifier to preserve traceability
+            throughout the evaluation process.
+
+            The protocol then launches the Cryoassess neural-network model,
+            which analyzes the visual and structural characteristics of the
+            input classes. The batch size parameter controls how many images
+            are processed simultaneously during inference. Larger batch sizes
+            improve execution speed but require more GPU or system memory.
+
+            Automatic Quality Assessment
+
+            After prediction, the protocol scans the Cryoassess output files
+            and automatically separates references into good and bad
+            categories. Good references typically correspond to classes with
+            clear structural features, strong signal quality, and meaningful
+            particle alignment. Bad references usually contain noise,
+            artifacts, poorly aligned particles, or structurally ambiguous
+            information.
+
+            From a biological perspective, this automated classification
+            helps reduce the influence of low-quality classes during later
+            stages of cryo-EM analysis. Removing unreliable classes can
+            improve reconstruction stability, enhance structural resolution,
+            and reduce the propagation of alignment errors.
+
+            Outputs and Interpretation
+
+            Depending on the input type, the protocol generates separated
+            outputs containing either good and discarded 2D classes or good
+            and discarded 2D averages. The resulting datasets preserve the
+            original metadata while incorporating the quality assessment
+            performed by the Cryoassess model.
+
+            Good outputs are intended for downstream refinement and analysis,
+            whereas discarded outputs provide a record of excluded classes
+            for inspection or validation purposes. This separation allows
+            users to review the automated decisions and determine whether
+            additional manual curation may be necessary.
+
+            Biological Perspective
+
+            In cryo-EM workflows, the quality of 2D classes strongly impacts
+            the reliability of subsequent reconstruction steps. High-quality
+            classes generally represent consistent particle orientations and
+            structurally meaningful information, while poor classes often
+            reflect contamination, flexibility, alignment failure, or image
+            noise.
+
+            Automated assessment protocols such as Cryoassess accelerate the
+            curation process and reduce subjectivity during dataset cleaning.
+            Nevertheless, biological interpretation remains important because
+            some structurally rare or flexible conformations may appear less
+            visually defined while still containing relevant information.
+
+            Final Perspective
+
+            CryoassessProt2D provides an automated framework for evaluating
+            and organizing 2D cryo-EM references into biologically meaningful
+            quality categories. By combining neural-network-based assessment
+            with direct integration into cryo-EM workflows, the protocol
+            simplifies dataset curation and improves the reliability of
+            downstream structural analysis.
+        """
     _label = 'assess 2D classes'
     _devStatus = PROD
     _possibleOutputs = {

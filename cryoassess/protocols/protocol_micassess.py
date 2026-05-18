@@ -48,6 +48,58 @@ class CryoassessProtMics(ProtPreprocessMicrographs, Protocol):
     """
     Protocol to assess micrographs from K2 or K3 cameras.
     """
+
+    """
+            The CryoassessProtMics protocol evaluates cryo-EM micrographs
+            using a deep-learning-based Cryoassess model trained for Gatan
+            K2 and K3 camera data. Its main purpose is to automatically
+            classify micrographs into good and discarded categories before
+            downstream cryo-EM processing.
+
+            Inputs and General Workflow
+
+            The protocol accepts a set of input micrographs and processes
+            them in streaming batches. During execution, the micrographs are
+            converted into STAR files compatible with the MicAssess model,
+            which predicts micrograph quality using neural-network-based
+            analysis.
+
+            Two threshold parameters control the classification process,
+            while the batch size determines how many micrographs are
+            evaluated simultaneously during prediction.
+
+            Automatic Quality Assessment
+
+            After prediction, the protocol separates good and discarded
+            micrographs according to the Cryoassess results. Good
+            micrographs generally contain sufficient signal quality and
+            reduced imaging artifacts, whereas discarded micrographs often
+            contain contamination, poor ice conditions, or low contrast.
+
+            From a biological perspective, removing low-quality micrographs
+            improves the reliability of downstream particle picking,
+            classification, and 3D reconstruction.
+
+            Outputs and Interpretation
+
+            The protocol generates separate output sets containing accepted
+            and discarded micrographs while preserving the original
+            acquisition metadata.
+
+            Biological Perspective
+
+            Automated micrograph assessment helps accelerate cryo-EM dataset
+            curation and reduces the propagation of low-quality data into
+            downstream structural analyses. Nevertheless, manual inspection
+            may still be important in challenging biological datasets.
+
+            Final Perspective
+
+            CryoassessProtMics provides an automated and streaming-compatible
+            strategy for cryo-EM micrograph quality assessment, improving
+            dataset cleaning and supporting more reliable structural
+            analysis workflows.
+        """
     _label = 'assess micrographs'
     _devStatus = PROD
     _possibleOutputs = outputs

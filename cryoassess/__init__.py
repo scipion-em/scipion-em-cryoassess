@@ -27,7 +27,7 @@
 import os
 import pwem
 import pyworkflow.utils as pwutils
-from pyworkflow import Config
+from pyworkflow import Config, TOMO
 
 from .constants import *
 
@@ -41,6 +41,7 @@ class Plugin(pwem.Plugin):
     _pathVars = [CRYOASSESS_MODELS]
     _url = "https://github.com/scipion-em/scipion-em-cryoassess"
     _supportedVersions = VERSIONS
+    _processingField = [TOMO]
 
     @classmethod
     def _defineVariables(cls):
