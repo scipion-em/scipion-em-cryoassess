@@ -30,7 +30,7 @@ from ..protocols.protocol_micassess import (OUTPUT, OUTPUT_DISCARDED, MICASSESS_
 
 MAX_POLLS = 20
 # K2 frame proportions, so the camera type is detected
-MIC_SHAPE = (30, 31)
+MIC_SHAPE = (29, 30)
 
 
 class PollCap:
@@ -284,6 +284,25 @@ class TestCryoassessMicsStreaming(CryoassessStreamingTest):
         self.assertEqual(self._outputs(prot), ([], []),
                          "An unfinished micassess run discarded micrographs that were never assessed.")
         self.assertEqual(prot._failedIds, {1, 2})
+
+    def testMicassessRunsInTheBatchFolderOnItsOwnStar(self):
+        prot = self._newProtocol(['mic1.mrc'])
+        self._runGenerator(prot)
+        calls = []
+        fake = self._fakeMicAssess({1})
+
+        def runJob(program, args, cwd=None, **kwargs):
+            calls.append((args, cwd))
+            return fake(program, args, cwd=cwd, **kwargs)
+
+        with mock.patch.object(prot, 'runJob', side_effect=runJob):
+            func, args = self.batchSteps[0]
+            func(*args)
+
+        args, cwd = calls[0]
+        self.assertTrue(cwd.endswith('batch_000001'))
+        for expected in ('-i %s' % BATCH_INPUT_STAR, '-o %s' % BATCH_OUTPUT_DIR, '-d K2', '--threads 1', '--gpus %(GPU)s'):
+            self.assertIn(expected, args)
 
     def testNoGoodStarMeansEveryMicrographIsBad(self):
         prot = self._newProtocol(['mic1.mrc', 'mic2.mrc'])
