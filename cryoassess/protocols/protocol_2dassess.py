@@ -48,14 +48,14 @@ class CryoassessProt2D(ProtProcessParticles):
         'outputClasses': SetOfClasses2D,
         'outputClasses_discarded': SetOfClasses2D
     }
-    outputDict = {}
-
     def __init__(self, **kwargs):
         ProtProcessParticles.__init__(self, **kwargs)
+        self.outputDict = {}
 
     def _createFilenameTemplates(self):
         """ Centralize how files are called. """
-        myDict = {'input_cls': self._getExtraPath('input_classes.mrcs')}
+        myDict = {'input_cls': self._getExtraPath('input_classes.mrcs'),
+                  'input_ids': self._getExtraPath('input_classes_ids.txt')}
         self._pathTemplate = self._getExtraPath('2DAssess/*/particle_*.jpg')
         self._goodClassesRegex = re.compile(r'Good/particle_(\d*)\.jpg')
         self._regex = re.compile(r'particle_(\d*)\.jpg')
@@ -82,17 +82,20 @@ class CryoassessProt2D(ProtProcessParticles):
     def _insertAllSteps(self):
         self._createFilenameTemplates()
         self._insertFunctionStep('convertInputStep', needsGPU=False)
-        self._insertFunctionStep('run2DAssessStep', needsGPU=False)
+        self._insertFunctionStep('run2DAssessStep', needsGPU=True)
         self._insertFunctionStep('createOutputStep', needsGPU=False)
 
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self):
         """ Create a mrcs stack as expected by cryoassess and
-        store a list of objIds."""
+        store the objIds in the order of the stack."""
         imgSet = self.inputRefs.get()
         imgSet.writeStack(self._getFileName('input_cls'))
 
-        self.clsIds = list(self.inputRefs.get().getIdSet())
+        # The images of the stack follow the ids in ascending order, as writeStack reads them.
+        # Kept in a file: Continue may start from createOutputStep
+        with open(self._getFileName('input_ids'), 'w') as f:
+            f.write('\n'.join(str(item.getObjId()) for item in imgSet.iterItems(orderBy='id')))
 
     def run2DAssessStep(self):
         """ Call cryoassess with the appropriate parameters. """
@@ -114,6 +117,7 @@ class CryoassessProt2D(ProtProcessParticles):
         outBadRefs.copyInfo(inputRefs)
 
         # Search through output files and find good and bad classes
+        self._loadStackIds()
         self._getReferences()
         if len(self.goodList):
             if self._getRefsType() == REF_CLASSES:
@@ -165,6 +169,11 @@ class CryoassessProt2D(ProtProcessParticles):
 
         return args
 
+    def _loadStackIds(self):
+        """ objIds of the input references, in the order of the stack given to 2dassess. """
+        with open(self._getFileName('input_ids')) as f:
+            self.clsIds = [int(line) for line in f if line.strip()]
+
     def _getReferences(self):
         """ Return the list of good and bad classes files. """
         files = sorted(glob(self._pathTemplate))
@@ -175,6 +184,13 @@ class CryoassessProt2D(ProtProcessParticles):
             else:
                 s = self._regex.search(i)
                 self.badList.append(int(s.group(1)))
+        # 2dassess skips blank images (e.g. empty classes): they are discarded
+        assessed = set(self.goodList) | set(self.badList)
+        skipped = [i for i in range(1, len(self.clsIds) + 1) if i not in assessed]
+        if skipped:
+            self.badList.extend(skipped)
+            self.info('2dassess did not assess the references with ids %s (blank images): they are discarded.'
+                      % [self.clsIds[i - 1] for i in skipped])
 
     def _addGoodAvg(self, item, row):
         """ Callback function to append only good items. """
