@@ -125,8 +125,13 @@ class Plugin(pwem.Plugin):
 
     @classmethod
     def getProgram(cls, program):
-        """ Create cryoAssess command line. """
-        fullProgram = '%s %s && %s' % (cls.getCondaActivationCmd(),
-                                       cls.getCryoAssessEnvActivation(),
-                                       program)
+        """ Create cryoAssess command line. The CUDA libraries of the conda
+        environment go first: a system CUDA in LD_LIBRARY_PATH (e.g. 11.8)
+        mixes its cuBLAS with TensorFlow's and the first GPU matmul fails
+        with CUBLAS_STATUS_NOT_SUPPORTED. """
+        fullProgram = ('%s %s && export LD_LIBRARY_PATH="$CONDA_PREFIX/lib'
+                       '${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" && %s'
+                       % (cls.getCondaActivationCmd(),
+                          cls.getCryoAssessEnvActivation(),
+                          program))
         return fullProgram
