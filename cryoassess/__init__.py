@@ -32,7 +32,7 @@ from pyworkflow import Config, TOMO
 from .constants import *
 
 
-__version__ = '3.4.1'
+__version__ = '3.5.0'
 _references = ['Li2020']
 _logo = "cryoassess_logo.png"
 

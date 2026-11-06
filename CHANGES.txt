@@ -1,3 +1,8 @@
+3.5.0:
+    - Assess micrographs works incrementally in streaming and resumes where it stopped
+    - 2D assess gives each verdict to its own reference and discards blank classes
+    - The conda environment's CUDA libraries go first, so a system CUDA in LD_LIBRARY_PATH no longer breaks TensorFlow (cuBLAS)
+    - The plugin declares its category
 3.4: add discarded micrographs and use a generic updateOutputSet (by @danielmarchan3)
 3.3: fix GPU assignment, add binary version detection
 3.2:
